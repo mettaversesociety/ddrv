@@ -1,7 +1,14 @@
 # Core configuration settings for ddrv
 ddrv:
-  # Discord bot token. This token is used to authenticate your bot with Discord's API.
-  token: your_bot_token_here
+  # Discord bot/user token. This token is used to authenticate your bot with Discord's API.
+  token: your_token_here
+  # Determines the type of token used to authenticate the bot with Discord's API and also the maximum chunk size for attachment.
+  # Available options are:
+  #   0 - Bot token, max chunk size: 25 MB
+  #   1 - User token, max chunk size: 25 MB
+  #   2 - Nitro User token, max chunk size: 500 MB
+  #   3 - Nitro Basic User token, max chunk size: 50 MB
+  token_type: 0
   # List of Discord channel IDs. The bot token user must have "See Channel", "Send Message", "Create Attachment", and "Read Message History" permissions on these channels.
   channels: your_server_channels_here
   # Defines the maximum size (in bytes) of chunks to be sent via Discord webhook.
@@ -39,7 +46,7 @@ frontend:
     # Range of ports for passive FTP connections.
     # Format: "startPort-endPort". Necessary for cloud-hosted or NAT-traversed environments.
     # Important for enabling PASV mode, which may be required if your ISP or network configuration restricts port forwarding.
-    port_range: "40000-50000"
+    # port_range: "40000-50000"
     # Enables concurrent file uploads to Discord, resulting in faster file transfers.
     # Note that this will use more RAM, approximately (chunkSize * number of webhooks) + 20% extra bytes.
     # Use with caution based on your system's memory capacity.

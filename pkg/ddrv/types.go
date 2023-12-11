@@ -27,3 +27,10 @@ type Message struct {
 	Id          string `json:"id"`
 	Attachments []Node `json:"attachments"`
 }
+
+const (
+	TokenBot = iota
+	TokenUser
+	TokenUserNitro
+	TokenUserNitroBasic
+)

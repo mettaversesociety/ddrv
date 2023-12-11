@@ -18,6 +18,7 @@ var UserAgent = "PostmanRuntime/7.35.0"
 
 type Rest struct {
 	channels     []string
+	nitro        bool
 	lastChIdx    int
 	limiter      *Limiter
 	client       *http.Client
@@ -26,29 +27,17 @@ type Rest struct {
 	lastTokenIdx int
 }
 
-func NewRest(tokens []string, channels []string) *Rest {
+func NewRest(tokens []string, channels []string, nitro bool) *Rest {
 	return &Rest{
 		client:       &http.Client{Timeout: 30 * time.Second},
 		channels:     channels,
+		nitro:        nitro,
 		limiter:      NewLimiter(),
 		tokens:       tokens,
 		mu:           &sync.Mutex{},
 		lastTokenIdx: 0,
 		lastChIdx:    0,
 	}
-}
-
-func (r *Rest) request(method string, path string, token string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest(method, baseURL+path, body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("User-Agent", UserAgent)
-	if token != "" {
-		req.Header.Add("Authorization", "Bot "+token)
-	}
-
-	return req, nil
 }
 
 // token returns the next token in the list, cycling through the list in a round-robin manner.
@@ -75,6 +64,31 @@ func (r *Rest) channel() string {
 	return channel
 }
 
+func (r *Rest) request(method string, path string, token string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("User-Agent", UserAgent)
+	req.Header.Add("Authorization", token)
+
+	return req, nil
+}
+
+func (r *Rest) doReq(bucketId string, req *http.Request) (*http.Response, error) {
+	// Try to acquire lock
+	r.limiter.Acquire(bucketId)
+	// Here make HTTP call
+	resp, err := r.client.Do(req)
+	// Release lock
+	if resp != nil && resp.Header != nil {
+		r.limiter.Release(bucketId, resp.Header)
+	} else {
+		r.limiter.Release(bucketId, nil)
+	}
+	return resp, err
+}
+
 func (r *Rest) GetMessages(channelId string, messageId int64, query string, messages *[]Message) error {
 	token := r.token()
 	var path string
@@ -90,21 +104,10 @@ func (r *Rest) GetMessages(channelId string, messageId int64, query string, mess
 	if err != nil {
 		return err
 	}
-
-	// Try to acquire lock
-	r.limiter.Acquire(bucketPath)
-
-	// Here make HTTP call
-	resp, err := r.client.Do(req)
-	// Release lock
-	if resp != nil && resp.Header != nil {
-		r.limiter.Release(bucketPath, resp.Header)
-	}
+	resp, err := r.doReq(bucketPath, req)
 	if err != nil {
-		r.limiter.Release(bucketPath, nil)
 		return err
 	}
-
 	// Retry request on 429 or >500
 	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
 		return r.GetMessages(channelId, messageId, query, messages)
@@ -125,10 +128,14 @@ func (r *Rest) GetMessages(channelId string, messageId int64, query string, mess
 
 // CreateAttachment uploads a file to the Discord channel using the webhook.
 func (r *Rest) CreateAttachment(reader io.Reader) (*Node, error) {
+	// If nitro user, use another method to create the attachment
+	if r.nitro {
+		return r.CreateAttachmentNitro(reader)
+	}
 	token := r.token()
 	channelId := r.channel()
 	path := fmt.Sprintf("/channels/%s/messages", channelId)
-	bucketPath := fmt.Sprintf("%s/channels/%s/messages", token, channelId)
+	bucketId := fmt.Sprintf("%s/channels/%s/messages", token, channelId)
 
 	// Prepare request
 	contentType, body := mbody(reader)
@@ -137,20 +144,12 @@ func (r *Rest) CreateAttachment(reader io.Reader) (*Node, error) {
 		return nil, err
 	}
 	req.Header.Add("Content-Type", contentType)
-	// Try to acquire lock
-	r.limiter.Acquire(bucketPath)
 
 	// Here make HTTP call
-	resp, err := r.client.Do(req)
-	// Release lock
-	if resp != nil && resp.Header != nil {
-		r.limiter.Release(bucketPath, resp.Header)
-	}
+	resp, err := r.doReq(bucketId, req)
 	if err != nil {
-		r.limiter.Release(bucketPath, nil)
 		return nil, err
 	}
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("create attachment : expected status code %d but recevied %d", http.StatusOK, resp.StatusCode)
 	}
@@ -218,4 +217,97 @@ func mbody(reader io.Reader) (string, io.Reader) {
 
 	// Return the content type and the combined reader of all parts
 	return contentType, io.MultiReader(parts...)
+}
+
+type AttachmentResp struct {
+	Attachments []struct {
+		UploadUrl      string `json:"upload_url"`
+		UploadFileName string `json:"upload_filename"`
+	} `json:"attachments"`
+}
+
+func (r *Rest) CreateAttachmentNitro(reader io.Reader) (*Node, error) {
+	//
+	// 1. First request to get upload URL
+	//
+	token := r.token()
+	channelId := r.channel()
+	path := fmt.Sprintf("/channels/%s/attachments", channelId)
+	bucketId := fmt.Sprintf("%s/channels/%s/messages", token, channelId)
+	fname := uuid.New().String()
+	body := fmt.Sprintf(`{"files":[{"filename":"%s","file_size":524288000}]}`, fname)
+
+	req, err := r.request(http.MethodPost, path, token, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := r.doReq(bucketId, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("create attachment : expected status code %d but recevied %d", http.StatusOK, resp.StatusCode)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var ar AttachmentResp
+	if err = json.Unmarshal(respBody, &ar); err != nil {
+		return nil, err
+	}
+	a := ar.Attachments[0]
+
+	//
+	// 2. Second request to upload binary data
+	//
+	req, err = http.NewRequest(http.MethodPut, a.UploadUrl, reader)
+	if err != nil {
+		return nil, err
+	}
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to upload chunk to upload url : %v", err)
+	}
+
+	//
+	// 3. Request to create a message in channel
+	//
+	token = r.token()
+	channelId = r.channel()
+	path = fmt.Sprintf("/channels/%s/messages", channelId)
+	bucketId = fmt.Sprintf("%s/channels/%s/messages", token, channelId)
+	body = fmt.Sprintf(`{"attachments":[{"id":"0","filename":"%s","uploaded_filename":"%s"}]}`, fname, a.UploadFileName)
+
+	req, err = r.request(http.MethodPost, path, token, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	resp, err = r.doReq(bucketId, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("create attachment : expected status code %d but recevied %d", http.StatusOK, resp.StatusCode)
+	}
+	// read and parse the response body
+	respBody, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var m Message
+	if err = json.Unmarshal(respBody, &m); err != nil {
+		fmt.Println("json unmarshal", err)
+		return nil, err
+	}
+	// clean url and extract ex,is and hm
+	node := m.Attachments[0]
+	node.URL, node.Ex, node.Is, node.Hm = decodeAttachmentURL(node.URL)
+	node.MId, _ = strconv.ParseInt(m.Id, 10, 64)
+
+	// Return the first attachment from the response
+	return &node, nil
 }
