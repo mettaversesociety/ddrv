@@ -397,6 +397,9 @@ func (pgp *PGProvider) Migrate() error {
 				break // Exit the inner loop if no messages are left
 			}
 			for _, message := range messages {
+				if len(message.Attachments) == 0 {
+					continue
+				}
 				att := message.Attachments[0]
 				url, ex, is, hm := ddrv.DecodeAttachmentURL(att.URL)
 				if _, err = pgp.db.Exec(`UPDATE node SET ex=$1, "is"=$2, hm=$3, mid=$4 WHERE url=$5`, ex, is, hm, message.Id, url); err != nil {
