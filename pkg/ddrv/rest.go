@@ -120,7 +120,7 @@ func (r *Rest) GetMessages(channelId string, messageId int64, query string, mess
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(respBody, messages); err != nil {
+	if err = json.Unmarshal(respBody, messages); err != nil {
 		return err
 	}
 	return nil
@@ -165,14 +165,14 @@ func (r *Rest) CreateAttachment(reader io.Reader) (*Node, error) {
 	}
 	// clean url and extract ex,is and hm
 	att := m.Attachments[0]
-	att.URL, att.Ex, att.Is, att.Hm = decodeAttachmentURL(att.URL)
+	att.URL, att.Ex, att.Is, att.Hm = DecodeAttachmentURL(att.URL)
 	att.MId, _ = strconv.ParseInt(m.Id, 10, 64)
 	// Return the first attachment from the response
 	return &att, nil
 }
 
 func (r *Rest) ReadAttachment(att *Node, start int, end int) (io.ReadCloser, error) {
-	path := encodeAttachmentURL(att.URL, att.Ex, att.Is, att.Hm)
+	path := EncodeAttachmentURL(att.URL, att.Ex, att.Is, att.Hm)
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
@@ -305,7 +305,7 @@ func (r *Rest) CreateAttachmentNitro(reader io.Reader) (*Node, error) {
 	}
 	// clean url and extract ex,is and hm
 	node := m.Attachments[0]
-	node.URL, node.Ex, node.Is, node.Hm = decodeAttachmentURL(node.URL)
+	node.URL, node.Ex, node.Is, node.Hm = DecodeAttachmentURL(node.URL)
 	node.MId, _ = strconv.ParseInt(m.Id, 10, 64)
 
 	// Return the first attachment from the response

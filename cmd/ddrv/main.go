@@ -72,6 +72,13 @@ func main() {
 	}
 	if provider == nil && config.Dataprovider.Postgres.DbURL != "" {
 		provider = postgres.New(&config.Dataprovider.Postgres, driver)
+		if config.Dataprovider.Postgres.Migrate {
+			if err = provider.Migrate(); err != nil {
+				log.Fatal().Str("c", "ddrv").Err(err).Msg("failed to migrate provider")
+			}
+			log.Info().Str("c", "ddrv").Msg("postgres provider migration complete")
+			os.Exit(0)
+		}
 	}
 	if provider == nil {
 		config.Dataprovider.Bolt.DbPath = "./ddrv.db"

@@ -15,30 +15,26 @@ const Driver = "postgres"
 // NewDb creates a new database connection using the dbUrl
 // It returns the *sql.DB object representing the connection.
 func NewDb(connStr string, skipMigration bool) *sql.DB {
-
 	// next a new database connection
 	db, err := sql.Open(Driver, connStr)
 	if err != nil {
-		log.Fatal().Err(err).Str("c", "postgres sb").Msg("could not open postgres connection")
+		log.Fatal().Err(err).Str("c", "postgres db").Msg("could not open postgres connection")
 	}
 	// Set a limit to the maximum number of open connections to the database.
 	// This is to prevent excessive resource use and ensure the database
 	// doesn't become overwhelmed with connections, particularly in cases
 	// where many small files are being uploaded simultaneously.
 	db.SetMaxOpenConns(100)
-
 	// Ping the database to ensure connectivity
 	if err = db.Ping(); err != nil {
 		log.Fatal().Err(err).Str("c", "postgres db").Msg("ping failed")
 	}
-
 	// Perform database migrations
 	if !skipMigration {
 		if err = Migrate(db); err != nil {
 			log.Fatal().Err(err).Str("c", "postgres db").Msg("failed to execute migration")
 		}
 	}
-
 	return db
 }
 

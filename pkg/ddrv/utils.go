@@ -11,12 +11,12 @@ import (
 // and then captures a sequence of digits
 var discordCDNRe = regexp.MustCompile(`https://cdn\.discordapp\.com/attachments/(\d+)/`)
 
-// decode parses the input URL and extracts the query parameters.
+// DecodeAttachmentURL parses the input URL and extracts the query parameters.
 // It returns the cleaned URL, `ex` and `is` as integers, `hm` as a string, and an error if any.
-func decodeAttachmentURL(inputURL string) (string, int, int, string) {
+func DecodeAttachmentURL(inputURL string) (string, int, int, string) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
-		log.Fatalf("decodeAttachmentURL : failed to parse attachmentURL : URL -> %s", inputURL)
+		log.Fatalf("DecodeAttachmentURL : failed to parse attachmentURL : URL -> %s", inputURL)
 	}
 
 	// Extract query parameters
@@ -44,11 +44,11 @@ func decodeAttachmentURL(inputURL string) (string, int, int, string) {
 	return cleanedURL, ex, is, hm
 }
 
-// encode takes a base URL, `ex`, `is`, and `hm` as inputs, and returns the modified URL.
-func encodeAttachmentURL(baseURL string, ex int, is int, hm string) string {
+// EncodeAttachmentURL takes a base URL, `ex`, `is`, and `hm` as inputs, and returns the modified URL.
+func EncodeAttachmentURL(baseURL string, ex int, is int, hm string) string {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
-		log.Fatalf("encodeAttachmentURL : failed to parse attachmentURL : URL -> %s", baseURL)
+		log.Fatalf("EncodeAttachmentURL : failed to parse attachmentURL : URL -> %s", baseURL)
 	}
 
 	// Convert int values to base16 (hexadecimal)

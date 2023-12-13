@@ -9,8 +9,8 @@ import (
 )
 
 type Driver struct {
-	rest      *Rest
-	chunkSize int
+	Rest      *Rest
+	ChunkSize int
 }
 
 type Config struct {
@@ -47,20 +47,20 @@ func New(cfg *Config) (*Driver, error) {
 // NewWriter creates a new ddrv.Writer instance that implements an io.WriterCloser.
 // This allows for writing large files to Discord as small, manageable chunks.
 func (d *Driver) NewWriter(onChunk func(chunk Node)) io.WriteCloser {
-	return NewWriter(onChunk, d.chunkSize, d.rest)
+	return NewWriter(onChunk, d.ChunkSize, d.Rest)
 }
 
 // NewNWriter creates a new ddrv.NWriter instance that implements an io.WriterCloser.
 // This allows for writing large files to Discord as small, manageable chunks.
 // NWriter buffers bytes into memory and writes data to discord in parallel
 func (d *Driver) NewNWriter(onChunk func(chunk Node)) io.WriteCloser {
-	return NewNWriter(onChunk, d.chunkSize, d.rest)
+	return NewNWriter(onChunk, d.ChunkSize, d.Rest)
 }
 
 // NewReader creates a new Reader instance that implements an io.ReaderCloser.
 // This allows for reading large files from Discord that were split into small chunks.
 func (d *Driver) NewReader(chunks []Node, pos int64) (io.ReadCloser, error) {
-	return NewReader(chunks, pos, d.rest)
+	return NewReader(chunks, pos, d.Rest)
 }
 
 // UpdateNodes finds expired chunks and updates chunk signature in given chunks slice
@@ -79,13 +79,13 @@ func (d *Driver) UpdateNodes(chunks []*Node) error {
 		if currentTimestamp > chunk.Ex {
 			cid := extractChannelId(chunk.URL)
 			fmt.Println(cid)
-			if err := d.rest.GetMessages(cid, mid-1, "after", &messages); err != nil {
+			if err := d.Rest.GetMessages(cid, mid-1, "after", &messages); err != nil {
 				return err
 			}
 			for _, msg := range messages {
 				id, _ := strconv.ParseInt(msg.Id, 10, 64)
 				if updatedChunk, ok := expired[id]; ok {
-					updatedChunk.URL, updatedChunk.Ex, updatedChunk.Is, updatedChunk.Hm = decodeAttachmentURL(msg.Attachments[0].URL)
+					updatedChunk.URL, updatedChunk.Ex, updatedChunk.Is, updatedChunk.Hm = DecodeAttachmentURL(msg.Attachments[0].URL)
 				}
 			}
 		}
