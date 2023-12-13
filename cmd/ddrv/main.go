@@ -49,16 +49,6 @@ func main() {
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
-	// Default chunk size 24 mb
-	tokenType := viper.GetInt("ddrv.token_type")
-	if tokenType == 0 || tokenType == 1 {
-		viper.SetDefault("ddrv.chunk_size", 25*1024*1024)
-	} else if tokenType == 2 {
-		viper.SetDefault("ddrv.chunk_size", 500*1024*1024)
-	} else if tokenType == 3 {
-		viper.SetDefault("ddrv.chunk_size", 50*1024*1024)
-	}
-
 	var config Config
 	err := viper.Unmarshal(&config)
 	if err != nil {
