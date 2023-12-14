@@ -82,17 +82,9 @@ func main() {
 
 	errCh := make(chan error)
 	// Create and start ftp server
-	if config.Frontend.FTP.Addr != "" {
-		go func() {
-			log.Info().Str("c", "main").Str("addr", config.Frontend.FTP.Addr).Msg("starting ftp server")
-			errCh <- ftp.Serv(driver, &config.Frontend.FTP)
-		}()
-	}
-	if config.Frontend.HTTP.Addr != "" {
-		go func() {
-			log.Info().Str("c", "main").Str("addr", config.Frontend.HTTP.Addr).Msg("starting http server")
-			errCh <- http.Serv(driver, &config.Frontend.HTTP)
-		}()
-	}
+	go func() { errCh <- ftp.Serv(driver, &config.Frontend.FTP) }()
+	// Create and start http server
+	go func() { errCh <- http.Serv(driver, &config.Frontend.HTTP) }()
+
 	log.Fatal().Msgf("ddrv: error %v", <-errCh)
 }

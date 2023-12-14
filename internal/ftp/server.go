@@ -31,7 +31,11 @@ type Config struct {
 	AsyncWrite bool   `mapstructure:"async_write"`
 }
 
-func Serv(drvr *ddrv.Driver, cfg *Config) error { // Return a pointer to an FTP server instance
+func Serv(drvr *ddrv.Driver, cfg *Config) error {
+	// If Addr not provided, do not start FTP server
+	if cfg.Addr == "" {
+		return nil
+	}
 	var portRange *ftpserver.PortRange
 	if cfg.PortRange != "" {
 		portRange = &ftpserver.PortRange{}
@@ -75,6 +79,7 @@ func Serv(drvr *ddrv.Driver, cfg *Config) error { // Return a pointer to an FTP 
 
 	// Instantiate the FTP server with the driver and return a pointer to it
 	server := ftpserver.NewFtpServer(driver)
+	log.Info().Str("c", "ftp").Str("addr", cfg.Addr).Msg("starting ftp server")
 
 	return server.ListenAndServe()
 }

@@ -14,11 +14,14 @@ import (
 )
 
 type Config struct {
-	Addr       string `mapstructure:"addr"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	GuestMode  bool   `mapstructure:"guest_mode"`
-	AsyncWrite bool   `mapstructure:"async_write"`
+	Addr         string `mapstructure:"addr"`
+	HTTPSAddr    string `mapstructure:"https_addr"`
+	HTTPSKeyPath string `mapstructure:"https_keypath"`
+	HTTPSCrtPath string `mapstructure:"https_crtpath"`
+	Username     string `mapstructure:"username"`
+	Password     string `mapstructure:"password"`
+	GuestMode    bool   `mapstructure:"guest_mode"`
+	AsyncWrite   bool   `mapstructure:"async_write"`
 }
 
 func Serv(driver *ddrv.Driver, cfg *Config) error {
@@ -69,5 +72,25 @@ func Serv(driver *ddrv.Driver, cfg *Config) error {
 	// Register API routes
 	api.Load(app, driver)
 
-	return app.Listen(cfg.Addr)
+	// Error channel to capture any listen errors
+	errChan := make(chan error)
+
+	// Listen on HTTP
+	go func() {
+		if cfg.Addr != "" {
+			log.Info().Str("c", "http").Str("addr", cfg.Addr).Msg("starting http server")
+			errChan <- app.Listen(cfg.Addr)
+		}
+	}()
+
+	// Listen on HTTPS
+	go func() {
+		if cfg.HTTPSAddr != "" && cfg.HTTPSCrtPath != "" && cfg.HTTPSKeyPath != "" {
+			log.Info().Str("c", "http").Str("addr", cfg.HTTPSAddr).Msg("starting https server")
+			errChan <- app.ListenTLS(cfg.HTTPSAddr, cfg.HTTPSCrtPath, cfg.HTTPSKeyPath)
+		}
+	}()
+
+	// Return the first error received
+	return <-errChan
 }

@@ -11,7 +11,7 @@ ddrv:
   token_type: 0
   # List of Discord channel IDs. The bot token user must have "See Channel", "Send Message", "Create Attachment", and "Read Message History" permissions on these channels.
   channels: your_server_channels_here
-  # Defines the maximum size (in bytes) of chunks to be sent via Discord webhook.
+  # Defines the maximum size (in bytes) of chunks to be sent via Discord API.
   # You should probably never touch this unless you know what you're doing.
   # This setting impacts how data is chunked before being sent to Discord.
   chunk_size:
@@ -56,6 +56,17 @@ frontend:
     # Format: ":port". Set to empty to disable the HTTP server.
     # The HTTP server provides file transfer and management capabilities via a web interface.
     addr: ":2526"
+    # HTTPS server address configuration.
+    # Format: ":port" (e.g., ":443").
+    # This is typically set to port 443 for HTTPS.
+    # Note: HTTPS server will only start if `https_addr`, `https_keypath`, and `https_crtpath` are all provided.
+    https_addr: ":443"
+    # Path to the HTTPS certificate file.
+    # This certificate is used in SSL/TLS for HTTPS to verify the server's identity.
+    https_crtpath:
+    # Path to the HTTPS private key file.
+    # This key is part of the SSL/TLS certification used for securing HTTPS connections.
+    https_keypath:
     # If username and password both are blank, authentication will be disabled
     # HTTP server username.
     username: username
