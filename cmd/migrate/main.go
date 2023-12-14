@@ -46,6 +46,9 @@ func main() {
 	}
 	log.Info().Msgf("connected with postgres")
 
+	_, _ = db.Exec(`ALTER TABLE node ADD COLUMN mid BIGINT, ADD COLUMN ex INT, ADD COLUMN "is" INT, ADD COLUMN hm VARCHAR(255);`)
+	log.Info().Msg("Added columns ex, is, hm and mid to table node")
+
 	// Here we remove query parameters from attachment urls
 	if _, err = db.Exec("UPDATE node SET url = split_part(url, '?', 1) WHERE mid IS NULL;"); err != nil {
 		log.Fatal().Err(err).Msg("failed to clean urls on table 'node'")
