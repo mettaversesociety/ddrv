@@ -48,9 +48,9 @@ func main() {
 
 	// Setup config
 	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("$HOME/.config/ddrv/")
+	viper.SetConfigType("toml")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.config/ddrv/")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
