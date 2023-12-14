@@ -1,30 +1,30 @@
 DDRV - discord as infinite cloud storage.
 =========================================
-ddrv is a simple application to use discord's feature of unlimited file attachments for virtually infinite cloud storage.
+ddrv is not-so-conventional tool to exploit Discord's unlimited file attachment feature for an endless cloud storage solution. You're welcome.
 
 
 HIGHLIGHTS
 ----------
-- Support for multiple protocols, HTTP and FTP.
-- Robust frontend that works with numerous clients such as web browsers, Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
+- Supports multiple protocols, HTTP and FTP(Yes you can mount as fuse using rclone).
+- The frontend is robust. Works with web browsers (HTTP), Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
 - To store file metadata PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
 - HTTP supports partial downloads, so you can use multi-threaded download managers and stream video directly to video players.
 
 
 NEW IN VERSION 2
 ----------------
-- Moved from using webhooks to bot tokens for uploading attachments.
-- Added workaround for discord attachment URL signature.
-- Better logging using zerolog logging library instead of standard library.
-- Moved app configurations from ".env" to "config.yaml".
-- Added new disk based dataprovider, you don't need postgres anymore for simple setup.
-- Removed support for webdav as it was broken and too slow while listing directories
+- Ditched webhooks for bot tokens. Bot tokens were necessary to renew attachment url signature.
+- Discord attachment URL signature? Pfft. Found a workaround.
+- Zerolog logging library now. The standard one was just meh.
+- Configuration's now in "config.yaml" instead of ".env". Because consistency is overrated.
+- Added a new disk-based dataprovider using boltdb. For those who can't handle a full setup.
+- Webdav is out. It was a slow, broken mess and complete waste of time
 
 
 REQUIREMENTS
 -------------
-- Discord bot tokens (With "message content intent" enabled)
-- PostgreSQL - Optional (Data provider - To store file metadata)
+- Discord bot token. Make sure "message content intent" is on.
+- PostgreSQL - Optional (Data provider)
 
 
 USAGE
@@ -38,7 +38,7 @@ USAGE
 
 CONFIGURATION FILE
 ------------------
-The ddrv utilizes a configuration file in the YAML format, you can find sample configuration file at 'https://github.com/forscht/ddrv/blob/main/config/config.yaml'.
+The ddrv utilizes a configuration file in the YAML format, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config.yaml'.
 ddrv automatically searches for a file named 'config.yaml' in the current directory and in the $HOME/.config/ddrv directory.
 Alternatively, you can specify a different configuration file by using 'ddrv --config=/path-to-config/config.yaml'.
 
