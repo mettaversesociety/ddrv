@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
@@ -28,8 +27,7 @@ type PGProvider struct {
 }
 
 type Config struct {
-	DbURL   string `mapstructure:"db_url"`
-	Migrate bool   `mapstructure:"migrate"`
+	DbURL string `mapstructure:"db_url"`
 }
 
 func New(cfg *Config, driver *ddrv.Driver) *PGProvider {
@@ -348,75 +346,4 @@ func pqErrToOs(err error) error {
 
 func (pgp *PGProvider) Close() error {
 	return pgp.db.Close()
-}
-
-func (pgp *PGProvider) Migrate() error {
-	// Define your slice to hold the channelIds
-	var channelIds []string
-
-	log.Info().Str("c", "postgres provider").Msg("creating index on 'url' column")
-	_, err := pgp.db.Exec("CREATE INDEX IF NOT EXISTS idx_node_url ON node(url)")
-	if err != nil {
-		log.Fatal().Str("c", "postgres provider").Err(err).Msg("failed to create index on 'url'")
-	}
-
-	log.Info().Str("c", "postgres provider").Msg("starting postgres provider migration")
-	// Perform the query
-	rows, err := pgp.db.Query("SELECT DISTINCT split_part(url, '/', 5) AS channelId FROM node WHERE mid IS NULL;")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	// Iterate over the rows
-	for rows.Next() {
-		var channelId string
-		if err = rows.Scan(&channelId); err != nil {
-			return err
-		}
-		channelIds = append(channelIds, channelId)
-	}
-	// Check for errors from iterating over rows
-	if err = rows.Err(); err != nil {
-		return err
-	}
-
-	log.Info().Str("c", "postgres provider").Msgf("retrieved %d channels from database", len(channelIds))
-	for _, channelId := range channelIds {
-		log.Info().Str("c", "postgres provider").Str("channel", channelId).Msg("processing migration")
-		var messages []ddrv.Message
-		var lastMessageId int64
-		lastMessageId = 0
-		for {
-			messages = messages[:0]
-
-			if err = pgp.driver.Rest.GetMessages(channelId, lastMessageId, "before", &messages); err != nil {
-				return err
-			}
-			if len(messages) == 0 {
-				break // Exit the inner loop if no messages are left
-			}
-			for _, message := range messages {
-				if len(message.Attachments) == 0 {
-					continue
-				}
-				att := message.Attachments[0]
-				url, ex, is, hm := ddrv.DecodeAttachmentURL(att.URL)
-				if _, err = pgp.db.Exec(`UPDATE node SET ex=$1, "is"=$2, hm=$3, mid=$4 WHERE url=$5`, ex, is, hm, message.Id, url); err != nil {
-					return err
-				}
-			}
-			lastMessageId = stoi64(messages[len(messages)-1].Id)
-		}
-	}
-	log.Info().Str("c", "postgres provider").Msg("migration complete")
-	return nil
-}
-
-func stoi64(str string) int64 {
-	num, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		log.Fatal().Str("c", "postgres provider").Msgf("failed to convert string %s to int64", str)
-	}
-	return num
 }

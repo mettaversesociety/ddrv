@@ -42,6 +42,11 @@ func main() {
 	// Set the maximum number of operating system threads to use.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	// Setup logger
+	log.Logger = zl.New(zl.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).With().Timestamp().Logger()
+	zl.SetGlobalLevel(zl.DebugLevel)
+
+	// Setup config
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("$HOME/.config/ddrv/")
@@ -54,10 +59,6 @@ func main() {
 	if err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
 	}
-
-	// Setup logger
-	log.Logger = zl.New(zl.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).With().Timestamp().Logger()
-	zl.SetGlobalLevel(zl.DebugLevel)
 
 	// Create a ddrv driver
 	driver, err := ddrv.New((*ddrv.Config)(&config.Ddrv))
@@ -72,13 +73,6 @@ func main() {
 	}
 	if provider == nil && config.Dataprovider.Postgres.DbURL != "" {
 		provider = postgres.New(&config.Dataprovider.Postgres, driver)
-		if config.Dataprovider.Postgres.Migrate {
-			if err = provider.Migrate(); err != nil {
-				log.Fatal().Str("c", "ddrv").Err(err).Msg("failed to migrate provider")
-			}
-			log.Info().Str("c", "ddrv").Msg("postgres provider migration complete")
-			os.Exit(0)
-		}
 	}
 	if provider == nil {
 		config.Dataprovider.Bolt.DbPath = "./ddrv.db"

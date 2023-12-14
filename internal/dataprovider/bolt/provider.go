@@ -420,7 +420,3 @@ func (bfp *Provider) CHTime(path string, newMTime time.Time) error {
 func (bfp *Provider) Close() error {
 	return bfp.db.Close()
 }
-
-func (bfp *Provider) Migrate() error {
-	return nil
-}

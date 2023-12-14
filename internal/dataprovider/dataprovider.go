@@ -25,7 +25,6 @@ type DataProvider interface {
 	Mv(name, newname string) error
 	CHTime(path string, time time.Time) error
 	Close() error
-	Migrate() error
 }
 
 func Load(dp DataProvider) {
