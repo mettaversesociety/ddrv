@@ -131,7 +131,7 @@ func (lff *LogFsFile) Read(p []byte) (int, error) {
 		lff.lengthRead += n
 	}
 	if err != nil && err != io.EOF {
-		log.Info().Str("c", "fs").Str("op", "read").Str("name", lff.Name()).Err(err).Msg("")
+		log.Debug().Str("c", "fs").Str("op", "read").Str("name", lff.Name()).Err(err).Msg("")
 	}
 	return n, err
 }
@@ -143,7 +143,7 @@ func (lff *LogFsFile) ReadAt(p []byte, off int64) (int, error) {
 		lff.lengthRead += n
 	}
 	if err != nil && err != io.EOF {
-		log.Info().Str("c", "fs").Str("op", "readat").Str("name", lff.Name()).
+		log.Debug().Str("c", "fs").Str("op", "readat").Str("name", lff.Name()).
 			Int64("off", off).Err(err).Msg("")
 	}
 	return n, err
@@ -153,7 +153,7 @@ func (lff *LogFsFile) ReadAt(p []byte, off int64) (int, error) {
 func (lff *LogFsFile) Seek(offset int64, whence int) (int64, error) {
 	n, err := lff.src.Seek(offset, whence)
 	if err != nil {
-		log.Info().Str("c", "fs").Str("op", "seek").Str("name", lff.Name()).
+		log.Debug().Str("c", "fs").Str("op", "seek").Str("name", lff.Name()).
 			Int64("off", offset).Int("whence", whence).Err(err).Msg("")
 	}
 	return n, err
@@ -166,7 +166,7 @@ func (lff *LogFsFile) Write(p []byte) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Info().Str("c", "fs").Str("op", "write").Str("name", lff.Name()).Err(err).Msg("")
+		log.Debug().Str("c", "fs").Str("op", "write").Str("name", lff.Name()).Err(err).Msg("")
 	}
 	return n, err
 }
@@ -178,7 +178,7 @@ func (lff *LogFsFile) WriteAt(p []byte, off int64) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Info().Str("c", "fs").Str("op", "writeat").Str("name", lff.Name()).
+		log.Debug().Str("c", "fs").Str("op", "writeat").Str("name", lff.Name()).
 			Int64("off", off).Err(err).Msg("")
 	}
 	return n, err
@@ -191,7 +191,7 @@ func (lff *LogFsFile) WriteString(str string) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Info().Str("c", "fs").Str("op", "writestring").Str("name", lff.Name()).Err(err).Msg("")
+		log.Debug().Str("c", "fs").Str("op", "writestring").Str("name", lff.Name()).Err(err).Msg("")
 	}
 	return n, err
 }

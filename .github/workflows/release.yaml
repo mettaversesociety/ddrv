@@ -31,4 +31,4 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/ddrv"
           binary_name: "ddrv"
-          extra_files: LICENSE README.md config_example.yaml
+          extra_files: LICENSE README.md config/config_example.yaml

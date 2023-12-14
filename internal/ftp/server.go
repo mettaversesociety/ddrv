@@ -95,22 +95,22 @@ type Driver struct {
 
 // ClientConnected is called when a client is connected to the FTP server.
 func (d *Driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	log.Info().Str("c", "ftpserver").Any("addr", cc.RemoteAddr()).
-		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("new connection")
-	return "Ditto FTP Server", nil // Return a welcome message
+	log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).
+		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("client connected")
+	return "DDrv FTP Server", nil // Return a welcome message
 }
 
 // ClientDisconnected is called when a client is disconnected from the FTP server.
 func (d *Driver) ClientDisconnected(cc ftpserver.ClientContext) {
-	log.Info().Str("c", "ftpserver").Any("addr", cc.RemoteAddr()).
-		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("connection lost")
+	log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).
+		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("client disconnected")
 }
 
 // AuthUser authenticates a user during the FTP server login process.
 func (d *Driver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ftpserver.ClientDriver, error) {
 	// If authentication is required, check the provided username and password against the expected values
 	if d.username != "" && d.username != user || d.password != "" && d.password != pass {
-		log.Debug().Str("c", "ftpserver").Any("addr", cc.RemoteAddr()).Uint32("id", cc.ID()).
+		log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).Uint32("id", cc.ID()).
 			Str("user", user).Str("pass", pass).Err(ErrBadUserNameOrPassword).Msg("authentication failed")
 		return nil, ErrBadUserNameOrPassword // If either check fails, return an authentication error
 	}

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -38,17 +40,37 @@ type Config struct {
 	} `mapstructure:"frontend"`
 }
 
+var (
+	showVersion = flag.Bool("version", false, "print version information and exit")
+	debugMode   = flag.Bool("debug", false, "enable debug logs")
+	configFile  = flag.String("config", "", "path to ddrv configuration file")
+)
+
 func main() {
+	flag.Parse()
+
+	// Check if a version flag is set
+	if *showVersion {
+		fmt.Printf("ddrv: %s\n", version)
+		os.Exit(0)
+	}
+
 	// Set the maximum number of operating system threads to use.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// Setup logger
 	log.Logger = zl.New(zl.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).With().Timestamp().Logger()
-	zl.SetGlobalLevel(zl.DebugLevel)
+	zl.SetGlobalLevel(zl.InfoLevel)
+	if *debugMode {
+		zl.SetGlobalLevel(zl.DebugLevel)
+	}
 
 	// Setup config
+	if *configFile != "" {
+		viper.SetConfigFile(*configFile)
+	}
 	viper.SetConfigName("config")
-	viper.SetConfigType("toml")
+	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("$HOME/.config/ddrv/")
 	if err := viper.ReadInConfig(); err != nil {

@@ -9,6 +9,7 @@ import (
 var provider DataProvider
 
 type DataProvider interface {
+	Name() string
 	Get(id, parent string) (*File, error)
 	GetChild(id string) ([]*File, error)
 	Create(name, parent string, isDir bool) (*File, error)
@@ -31,6 +32,9 @@ func Load(dp DataProvider) {
 	provider = dp
 }
 
+func Name() string {
+	return provider.Name()
+}
 func Get(id, parent string) (*File, error) {
 	return provider.Get(id, parent)
 }

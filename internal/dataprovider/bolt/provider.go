@@ -52,6 +52,10 @@ func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 	return &Provider{db, sg, driver, locker.New()}
 }
 
+func (bfp *Provider) Name() string {
+	return "boltdb"
+}
+
 func (bfp *Provider) Get(id, parent string) (*dp.File, error) {
 	path := decodep(id)
 	file, err := bfp.Stat(path)
@@ -234,7 +238,7 @@ func (bfp *Provider) Stat(path string) (*dp.File, error) {
 
 func (bfp *Provider) Ls(path string, limit int, offset int) ([]*dp.File, error) {
 	path = filepath.Clean(path)
-	log.Info().Str("cmd", "ls").Str("path", path).Int("limit", limit).Int("offset", offset).Msg("")
+	log.Debug().Str("cmd", "ls").Str("path", path).Int("limit", limit).Int("offset", offset).Msg("")
 	var files []*dp.File
 	err := bfp.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
@@ -265,7 +269,7 @@ func (bfp *Provider) Ls(path string, limit int, offset int) ([]*dp.File, error) 
 
 func (bfp *Provider) Touch(path string) error {
 	path = filepath.Clean(path)
-	log.Info().Str("cmd", "touch").Str("path", path).Msg("")
+	log.Debug().Str("cmd", "touch").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		existingFile := b.Get([]byte(path))
@@ -280,7 +284,7 @@ func (bfp *Provider) Touch(path string) error {
 
 func (bfp *Provider) Mkdir(path string) error {
 	path = filepath.Clean(path)
-	log.Info().Str("cmd", "mkdir").Str("path", path).Msg("")
+	log.Debug().Str("cmd", "mkdir").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		existingFile := b.Get([]byte(path))
@@ -295,7 +299,7 @@ func (bfp *Provider) Mkdir(path string) error {
 
 func (bfp *Provider) Rm(path string) error {
 	path = filepath.Clean(path)
-	log.Info().Str("cmd", "rm").Str("path", path).Msg("")
+	log.Debug().Str("cmd", "rm").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		// Check if the directory exists
@@ -329,7 +333,7 @@ func (bfp *Provider) Rm(path string) error {
 func (bfp *Provider) Mv(oldPath, newPath string) error {
 	oldPath = filepath.Clean(oldPath)
 	newPath = filepath.Clean(newPath)
-	log.Info().Str("cmd", "mv").Str("new", newPath).Str("old", oldPath).Msg("")
+	log.Debug().Str("cmd", "mv").Str("new", newPath).Str("old", oldPath).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		if exist := b.Get([]byte(newPath)); exist != nil {
@@ -399,7 +403,7 @@ func (bfp *Provider) RenameBucket(tx *bbolt.Tx, oldp, newp string) error {
 
 func (bfp *Provider) CHTime(path string, newMTime time.Time) error {
 	path = filepath.Clean(path)
-	log.Info().Str("cmd", "chtimes").Str("path", path).Msg("")
+	log.Debug().Str("cmd", "chtimes").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		fileData := b.Get([]byte(path))

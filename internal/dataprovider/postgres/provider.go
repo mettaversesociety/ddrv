@@ -11,7 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 
-	"github.com/forscht/ddrv/internal/dataprovider"
+	dp "github.com/forscht/ddrv/internal/dataprovider"
 	"github.com/forscht/ddrv/pkg/ddrv"
 	"github.com/forscht/ddrv/pkg/locker"
 	"github.com/forscht/ddrv/pkg/ns"
@@ -30,7 +30,7 @@ type Config struct {
 	DbURL string `mapstructure:"db_url"`
 }
 
-func New(cfg *Config, driver *ddrv.Driver) *PGProvider {
+func New(cfg *Config, driver *ddrv.Driver) dp.DataProvider {
 	// Create database connection
 	dbConn := NewDb(cfg.DbURL, false)
 	sg, err := snowflake.NewNode(int64(rand.Intn(1023)))
@@ -41,8 +41,12 @@ func New(cfg *Config, driver *ddrv.Driver) *PGProvider {
 	return &PGProvider{dbConn, sg, driver, locker.New()}
 }
 
-func (pgp *PGProvider) Get(id, parent string) (*dataprovider.File, error) {
-	file := new(dataprovider.File)
+func (pgp *PGProvider) Name() string {
+	return "postgres"
+}
+
+func (pgp *PGProvider) Get(id, parent string) (*dp.File, error) {
+	file := new(dp.File)
 	var err error
 	if id == "" {
 		id = RootDirId
@@ -69,7 +73,7 @@ func (pgp *PGProvider) Get(id, parent string) (*dataprovider.File, error) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dataprovider.ErrNotExist
+			return nil, dp.ErrNotExist
 		}
 		return nil, err
 	}
@@ -77,7 +81,7 @@ func (pgp *PGProvider) Get(id, parent string) (*dataprovider.File, error) {
 	return file, nil
 }
 
-func (pgp *PGProvider) GetChild(id string) ([]*dataprovider.File, error) {
+func (pgp *PGProvider) GetChild(id string) ([]*dp.File, error) {
 	_, err := pgp.Get(id, "")
 	if err != nil {
 		return nil, err
@@ -85,7 +89,7 @@ func (pgp *PGProvider) GetChild(id string) ([]*dataprovider.File, error) {
 	if id == "" {
 		id = RootDirId
 	}
-	files := make([]*dataprovider.File, 0)
+	files := make([]*dp.File, 0)
 	rows, err := pgp.db.Query(`
 				SELECT fs.id, fs.name, fs.dir, parsesize(SUM(node.size)) AS size, fs.parent, fs.mtime
 				FROM fs
@@ -100,7 +104,7 @@ func (pgp *PGProvider) GetChild(id string) ([]*dataprovider.File, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		child := new(dataprovider.File)
+		child := new(dp.File)
 		if err := rows.Scan(&child.Id, &child.Name, &child.Dir, &child.Size, &child.Parent, &child.MTime); err != nil {
 			return nil, err
 		}
@@ -109,15 +113,15 @@ func (pgp *PGProvider) GetChild(id string) ([]*dataprovider.File, error) {
 	return files, nil
 }
 
-func (pgp *PGProvider) Create(name, parent string, dir bool) (*dataprovider.File, error) {
+func (pgp *PGProvider) Create(name, parent string, dir bool) (*dp.File, error) {
 	parentDir, err := pgp.Get(parent, "")
 	if err != nil {
 		return nil, err
 	}
 	if !parentDir.Dir {
-		return nil, dataprovider.ErrInvalidParent
+		return nil, dp.ErrInvalidParent
 	}
-	file := &dataprovider.File{Name: name, Parent: ns.NullString(parent)}
+	file := &dp.File{Name: name, Parent: ns.NullString(parent)}
 	if err = pgp.db.QueryRow("INSERT INTO fs (name,dir,parent) VALUES($1,$2,$3) RETURNING id, dir, mtime", name, dir, parent).
 		Scan(&file.Id, &file.Dir, &file.MTime); err != nil {
 		return nil, pqErrToOs(err) // Handle already exists
@@ -125,9 +129,9 @@ func (pgp *PGProvider) Create(name, parent string, dir bool) (*dataprovider.File
 	return file, nil
 }
 
-func (pgp *PGProvider) Update(id, parent string, file *dataprovider.File) (*dataprovider.File, error) {
+func (pgp *PGProvider) Update(id, parent string, file *dp.File) (*dp.File, error) {
 	if id == RootDirId {
-		return nil, dataprovider.ErrPermission
+		return nil, dp.ErrPermission
 	}
 	var err error
 	if parent == "" {
@@ -143,7 +147,7 @@ func (pgp *PGProvider) Update(id, parent string, file *dataprovider.File) (*data
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dataprovider.ErrNotExist
+			return nil, dp.ErrNotExist
 		}
 		return nil, pqErrToOs(err) // Handle already exists
 	}
@@ -152,7 +156,7 @@ func (pgp *PGProvider) Update(id, parent string, file *dataprovider.File) (*data
 
 func (pgp *PGProvider) Delete(id, parent string) error {
 	if id == RootDirId {
-		return dataprovider.ErrPermission
+		return dp.ErrPermission
 	}
 	var res sql.Result
 	var err error
@@ -167,7 +171,7 @@ func (pgp *PGProvider) Delete(id, parent string) error {
 	}
 	rAffected, _ := res.RowsAffected()
 	if rAffected == 0 {
-		return dataprovider.ErrNotExist
+		return dp.ErrNotExist
 	}
 	return nil
 }
@@ -255,20 +259,20 @@ func (pgp *PGProvider) DeleteNodes(fid string) error {
 	return err
 }
 
-func (pgp *PGProvider) Stat(name string) (*dataprovider.File, error) {
-	file := new(dataprovider.File)
+func (pgp *PGProvider) Stat(name string) (*dp.File, error) {
+	file := new(dp.File)
 	err := pgp.db.QueryRow("SELECT id, name, dir, size, mtime FROM stat($1)", name).
 		Scan(&file.Id, &file.Name, &file.Dir, &file.Size, &file.MTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, dataprovider.ErrNotExist
+			return nil, dp.ErrNotExist
 		}
 		return nil, pqErrToOs(err)
 	}
 	return file, nil
 }
 
-func (pgp *PGProvider) Ls(name string, limit int, offset int) ([]*dataprovider.File, error) {
+func (pgp *PGProvider) Ls(name string, limit int, offset int) ([]*dp.File, error) {
 	var rows *sql.Rows
 	var err error
 	if limit > 0 {
@@ -281,9 +285,9 @@ func (pgp *PGProvider) Ls(name string, limit int, offset int) ([]*dataprovider.F
 	}
 	defer rows.Close()
 
-	entries := make([]*dataprovider.File, 0)
+	entries := make([]*dp.File, 0)
 	for rows.Next() {
-		file := new(dataprovider.File)
+		file := new(dp.File)
 		if err = rows.Scan(&file.Id, &file.Name, &file.Dir, &file.Size, &file.MTime); err != nil {
 			return nil, err
 		}
@@ -323,15 +327,15 @@ func pqErrToOs(err error) error {
 	if errors.As(err, &pqErr) {
 		switch pqErr.Code {
 		case "P0001": // root dir permission issue
-			return dataprovider.ErrPermission
+			return dp.ErrPermission
 		case "P0002":
-			return dataprovider.ErrNotExist
+			return dp.ErrNotExist
 		case "P0003":
-			return dataprovider.ErrExist
+			return dp.ErrExist
 		case "P0004": // is not a directory
-			return dataprovider.ErrInvalidParent
+			return dp.ErrInvalidParent
 		case "23505": // Unique violation error code
-			return dataprovider.ErrExist
+			return dp.ErrExist
 		// Foreign key constraint violation occurred -> on CreateNodes
 		// This error occurs when FTP clients try to do open -> remove -> close
 		// Linux in case of os.OpenFile -> os.Remove -> file.Close ignores error, so we will too

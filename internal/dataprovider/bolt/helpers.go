@@ -50,8 +50,10 @@ func deserializeFile(file *dataprovider.File, data []byte) {
 		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to deserialize file")
 	}
 	file.Id = encodep(file.Name)
-	parent, _ := filepath.Split(file.Name)
-	file.Parent = ns.NullString(encodep(parent))
+	if file.Name != "/" {
+		parent, _ := filepath.Split(file.Name)
+		file.Parent = ns.NullString(encodep(parent))
+	}
 }
 
 func decodep(id string) string {
