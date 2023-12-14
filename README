@@ -1,11 +1,9 @@
 DDRV - discord as infinite cloud storage.
 -----------------------------------------
-
 ddrv is a simple application to use discord's feature of unlimited file attachments for virtually infinite cloud storage.
 
 HIGHLIGHTS
 ----------
-
 - Support for multiple protocols, HTTP and FTP.
 - Robust frontend that works with numerous clients such as web browsers, Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
 - To store file metadata PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
@@ -14,7 +12,6 @@ HIGHLIGHTS
 
 NEW IN VERSION 2
 ----------------
-
 - Moved from using webhooks to bot tokens for uploading attachments.
 - Added workaround for discord attachment URL signature.
 - Better logging using zerolog logging library instead of standard library.
@@ -25,15 +22,13 @@ NEW IN VERSION 2
 
 PREREQUISITES
 -------------
-
 - Discord bot tokens (With "message content intent" enabled)
 - PostgreSQL - Optional (Data provider - To store file metadata)
 
 
 USAGE
 -----
-
-- Get latest binary from "https://github.com/forscht/ddrv/releases" for your os/platform.
+- Get latest binary from 'https://github.com/forscht/ddrv/releases' for your os/platform.
 - Decompress the zip file
 - Copy config_example.yaml -> config.yaml and update config.yaml according to your use case
 - Start Linux / Macos - ./ddrv --config=config.yaml
@@ -42,12 +37,11 @@ USAGE
 
 BUILD FROM SOURCE
 -----------------
-
 - Install latest GO - 'https://go.dev/doc/install'
 - Clone this repo - 'https://github.com/forscht/ddrv'
 - Command to build - 'go build -ldflags="-s -w" -o ddrv ./cmd/ddrv'
 
 SUPPORT
 -------
-- Create GitHub issue at - https://github.com/forscht/ddrv/issues
-- Discord Server - https://discord.gg/bdxkPSEKzG
+- Create GitHub issue at - 'https://github.com/forscht/ddrv/issues'
+- Discord Server - 'https://discord.gg/bdxkPSEKzG'
