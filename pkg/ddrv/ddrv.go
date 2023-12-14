@@ -22,12 +22,12 @@ type Config struct {
 }
 
 func New(cfg *Config) (*Driver, error) {
+	if cfg.Token == "" || cfg.Channels == "" {
+		return nil,
+			fmt.Errorf("channels or token is missing: token = %s channels = %s", cfg.Token, cfg.Channels)
+	}
 	tokens := strings.Split(cfg.Token, ",")
 	channels := strings.Split(cfg.Channels, ",")
-	if len(tokens) == 0 || len(channels) == 0 {
-		return nil,
-			fmt.Errorf("not enough tokens or channels : tokens %d channels %d", len(tokens), len(channels))
-	}
 	chunkSize, err := parseChunkSize(cfg.ChunkSize, cfg.TokenType)
 	if err != nil {
 		return nil, err
