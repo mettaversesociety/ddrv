@@ -7,7 +7,7 @@ HIGHLIGHTS
 ----------
 - Supports multiple protocols, HTTP and FTP(Yes you can mount as fuse using rclone).
 - The frontend is robust. Works with web browsers (HTTP), Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
-- To store file metadata PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
+- For storing file metadata, PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
 - HTTP supports partial downloads, so you can use multi-threaded download managers and stream video directly to video players.
 
 
@@ -34,6 +34,12 @@ USAGE
 - Copy config_example.yaml -> config.yaml and update config.yaml according to your use case
 - Start Linux / Macos - ./ddrv --config=config.yaml
 - Start Windows - ddrv --config=config.yaml
+
+
+USAGE DOCKER
+------------
+- Prepare config.yaml, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'
+- Command - 'docker run --network=host -v="./config.yaml:/app/config.yaml" --rm --name=ddrv ddrv'
 
 
 CONFIGURATION FILE
