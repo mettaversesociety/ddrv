@@ -38,7 +38,7 @@ USAGE
 
 CONFIGURATION FILE
 ------------------
-The ddrv utilizes a configuration file in the YAML format, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config.yaml'.
+The ddrv utilizes a configuration file in the YAML format, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'.
 ddrv automatically searches for a file named 'config.yaml' in the current directory and in the $HOME/.config/ddrv directory.
 Alternatively, you can specify a different configuration file by using 'ddrv --config=/path-to-config/config.yaml'.
 
