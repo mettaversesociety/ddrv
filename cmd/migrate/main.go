@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	_ "github.com/lib/pq" // Import the PostgreSQL driver
 	zl "github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 

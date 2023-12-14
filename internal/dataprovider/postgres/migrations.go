@@ -86,9 +86,4 @@ var migrations = []migrate.Migration{
 		Up:   migrate.Queries([]string{`CREATE UNIQUE INDEX IF NOT EXISTS idx_node_mid_unique ON node(mid);`}),
 		Down: migrate.Queries([]string{`DROP INDEX IF EXISTS idx_node_mid_unique;`}),
 	},
-	{
-		ID:   7,
-		Up:   migrate.Queries([]string{`UPDATE node SET url = split_part(url, '?', 1);`}),
-		Down: migrate.Queries([]string{}),
-	},
 }

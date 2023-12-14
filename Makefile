@@ -22,10 +22,6 @@ build-docker:
 build-image:
 	docker build -t ddrv:latest .
 
-# Migrate to ddrv2
-migrate:
-	go run ./cmd/migrate
-
 # Clean the project
 clean:
 	go clean
