@@ -31,7 +31,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/ddrv"
           binary_name: "ddrv"
-          extra_files: LICENSE README.md config/config_example.yaml
+          extra_files: LICENSE README config/config_example.yaml
   release-migrate:
     name: Release migrate binary
     permissions:
@@ -58,4 +58,4 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/migrate"
           binary_name: "migrate"
-          extra_files: LICENSE README.md config/config_example.yaml
+          extra_files: LICENSE README config/config_example.yaml
