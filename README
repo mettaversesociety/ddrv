@@ -1,38 +1,53 @@
-ddrv - discord as infinite cloud storage.
+DDRV - discord as infinite cloud storage.
 -----------------------------------------
-ddrv is a Go application that uses Discord's feature of unlimited file attachments to provide virtually infinite cloud storage.
 
-Highlights
-- Theoretically infinite file size and Unlimited storage space.
+ddrv is a simple application to use discord's feature of unlimited file attachments for virtually infinite cloud storage.
+
+HIGHLIGHTS
+----------
+
 - Support for multiple protocols, HTTP and FTP.
 - Robust frontend that works with numerous clients such as web browsers, Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
-- PostgreSQL or boltdb(on disk like sqlite) based file metadata management.
+- To store file metadata PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
 - HTTP supports partial downloads, so you can use multi-threaded download managers and stream video directly to video players.
 
-Prerequisites
-- Discord bot tokens (To make calls to discord API)
-- PostgreSQL (Data provider - To store file metadata)
 
-Getting Started
-- Navigate to the Release page (https://github.com/forscht/ddrv/releases) and download the latest release suitable for your platform.
-- Decompress the binary file and initialize ddrv with the command provided below:
-  ./ddrv --db-url=postgres://user:pass@host:port/dbname?sslmode=disable --webhooks=webhookURL1,webhookURL2
-- An FTP server will launch on ftp://localhost:2525
-- An HTTP server will launch on http://localhost:2526
+NEW IN VERSION 2
+----------------
 
-Build from Source
-- Ensure that you have Go (https://go.dev/doc/install) (version 1.20 or newer) installed on your system.
-- Clone the repository:
-  git clone https://github.com/forscht/ddrv.git
-- Navigate to the cloned directory:
-  cd ddrv
-- Build the project:
-  go build -race -o ddrv ./cmd/ddrv
-  If you're on linux and make is installed
-  make build
-- Run the executable:
-  ./ddrv --db-url=postgres://user:pass@host:port/dbname?sslmode=disable --webhooks=webhookURL1,webhookURL2
+- Moved from using webhooks to bot tokens for uploading attachments.
+- Added workaround for discord attachment URL signature.
+- Better logging using zerolog logging library instead of standard library.
+- Moved app configurations from ".env" to "config.yaml".
+- Added new disk based dataprovider, you don't need postgres anymore for simple setup.
+- Removed support for webdav as it was broken and too slow while listing directories
 
-License
-ddrv is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See the LICENSE file for full license details.
-For quick reference, the AGPL-3.0 permits use, duplication, modification, and distribution of the software, given that the conditions of the license are met. This license also includes a requirement that if you run modifications of the software on a network, you must make the modified source code available to users. However, the software is provided "as is" and without any warranty. For more information, please read the full license text.
+
+PREREQUISITES
+-------------
+
+- Discord bot tokens (With "message content intent" enabled)
+- PostgreSQL - Optional (Data provider - To store file metadata)
+
+
+USAGE
+-----
+
+- Get latest binary from "https://github.com/forscht/ddrv/releases" for your os/platform.
+- Decompress the zip file
+- Copy config_example.yaml -> config.yaml and update config.yaml according to your use case
+- Start Linux / Macos - ./ddrv --config=config.yaml
+- Start Windows - ddrv --config=config.yaml
+
+
+BUILD FROM SOURCE
+-----------------
+
+- Install latest GO - 'https://go.dev/doc/install'
+- Clone this repo - 'https://github.com/forscht/ddrv'
+- Command to build - 'go build -ldflags="-s -w" -o ddrv ./cmd/ddrv'
+
+SUPPORT
+-------
+- Create GitHub issue at - https://github.com/forscht/ddrv/issues
+- Discord Server - https://discord.gg/bdxkPSEKzG
