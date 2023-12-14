@@ -1,6 +1,7 @@
 DDRV - discord as infinite cloud storage.
------------------------------------------
+=========================================
 ddrv is a simple application to use discord's feature of unlimited file attachments for virtually infinite cloud storage.
+
 
 HIGHLIGHTS
 ----------
@@ -20,7 +21,7 @@ NEW IN VERSION 2
 - Removed support for webdav as it was broken and too slow while listing directories
 
 
-PREREQUISITES
+REQUIREMENTS
 -------------
 - Discord bot tokens (With "message content intent" enabled)
 - PostgreSQL - Optional (Data provider - To store file metadata)
@@ -35,11 +36,19 @@ USAGE
 - Start Windows - ddrv --config=config.yaml
 
 
+CONFIGURATION FILE
+------------------
+The ddrv utilizes a configuration file in the YAML format, you can find sample configuration file at 'https://github.com/forscht/ddrv/blob/main/config/config.yaml'.
+ddrv automatically searches for a file named 'config.yaml' in the current directory and in the $HOME/.config/ddrv directory.
+Alternatively, you can specify a different configuration file by using 'ddrv --config=/path-to-config/config.yaml'.
+
+
 BUILD FROM SOURCE
 -----------------
 - Install latest GO - 'https://go.dev/doc/install'
 - Clone this repo - 'https://github.com/forscht/ddrv'
 - Command to build - 'go build -ldflags="-s -w" -o ddrv ./cmd/ddrv'
+
 
 SUPPORT
 -------
