@@ -40,6 +40,8 @@ type Config struct {
 	} `mapstructure:"frontend"`
 }
 
+var config Config
+
 var (
 	showVersion = flag.Bool("version", false, "print version information and exit")
 	debugMode   = flag.Bool("debug", false, "enable debug logs")
@@ -65,22 +67,8 @@ func main() {
 		zl.SetGlobalLevel(zl.DebugLevel)
 	}
 
-	// Setup config
-	if *configFile != "" {
-		viper.SetConfigFile(*configFile)
-	}
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("$HOME/.config/ddrv/")
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
-	}
-	var config Config
-	err := viper.Unmarshal(&config)
-	if err != nil {
-		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
-	}
+	// Load config file
+	initConfig()
 
 	// Create a ddrv driver
 	driver, err := ddrv.New((*ddrv.Config)(&config.Ddrv))
@@ -109,4 +97,23 @@ func main() {
 	go func() { errCh <- http.Serv(driver, &config.Frontend.HTTP) }()
 
 	log.Fatal().Msgf("ddrv: error %v", <-errCh)
+}
+
+func initConfig() {
+	// Setup config
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.config/ddrv/")
+	if *configFile != "" {
+		viper.SetConfigFile(*configFile)
+	}
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
+	}
+
+	err := viper.Unmarshal(&config)
+	if err != nil {
+		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
+	}
 }
