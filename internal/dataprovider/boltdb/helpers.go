@@ -1,4 +1,4 @@
-package bolt
+package boltdb
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ func serializeNode(node ddrv.Node) []byte {
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(node)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to serialize node")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to serialize node")
 	}
 	return buffer.Bytes()
 }
@@ -28,7 +28,7 @@ func deserializeNode(node *ddrv.Node, data []byte) {
 	dec := gob.NewDecoder(buffer)
 	err := dec.Decode(node)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to deserialize file")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to deserialize file")
 	}
 }
 
@@ -37,7 +37,7 @@ func serializeFile(file dataprovider.File) []byte {
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(file)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to serialize file")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to serialize file")
 	}
 	return buffer.Bytes()
 }
@@ -47,7 +47,7 @@ func deserializeFile(file *dataprovider.File, data []byte) {
 	dec := gob.NewDecoder(buffer)
 	err := dec.Decode(file)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to deserialize file")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to deserialize file")
 	}
 	file.Id = encodep(file.Name)
 	if file.Name != "/" {
@@ -59,7 +59,7 @@ func deserializeFile(file *dataprovider.File, data []byte) {
 func decodep(id string) string {
 	decoded, err := base64.StdEncoding.DecodeString(id)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to decode base64")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to decode base64")
 	}
 	// Convert the bytes to a string and print it
 	path := string(decoded)

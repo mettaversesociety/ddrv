@@ -1,4 +1,4 @@
-package bolt
+package boltdb
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ type Config struct {
 func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 	db, err := bbolt.Open(cfg.DbPath, 0666, nil)
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to open db")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to open db")
 	}
 	// Initialize the filesystem root
 	err = db.Update(func(tx *bbolt.Tx) error {
@@ -43,11 +43,11 @@ func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 		return tx.Bucket([]byte("fs")).Put([]byte(RootDirPath), rootData)
 	})
 	if err != nil {
-		log.Fatal().Str("c", "bolt provider").Err(err).Msg("failed to init db")
+		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to init db")
 	}
 	sg, err := snowflake.NewNode(int64(rand.Intn(1023)))
 	if err != nil {
-		log.Fatal().Err(err).Str("c", "bolt provider").Msg("failed to create snowflake node")
+		log.Fatal().Err(err).Str("c", "boltdb provider").Msg("failed to create snowflake node")
 	}
 	return &Provider{db, sg, driver, locker.New()}
 }

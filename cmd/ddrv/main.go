@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	dp "github.com/forscht/ddrv/internal/dataprovider"
-	"github.com/forscht/ddrv/internal/dataprovider/bolt"
+	"github.com/forscht/ddrv/internal/dataprovider/boltdb"
 	"github.com/forscht/ddrv/internal/dataprovider/postgres"
 	"github.com/forscht/ddrv/internal/ftp"
 	"github.com/forscht/ddrv/internal/http"
@@ -30,7 +30,7 @@ type Config struct {
 	} `mapstructure:"ddrv"`
 
 	Dataprovider struct {
-		Bolt     bolt.Config     `mapstructure:"boltdb"`
+		Bolt     boltdb.Config   `mapstructure:"boltdb"`
 		Postgres postgres.Config `mapstructure:"postgres"`
 	} `mapstructure:"dataprovider"`
 
@@ -79,14 +79,14 @@ func main() {
 	// Load data provider
 	var provider dp.DataProvider
 	if config.Dataprovider.Bolt.DbPath != "" {
-		provider = bolt.New(driver, &config.Dataprovider.Bolt)
+		provider = boltdb.New(driver, &config.Dataprovider.Bolt)
 	}
 	if provider == nil && config.Dataprovider.Postgres.DbURL != "" {
 		provider = postgres.New(&config.Dataprovider.Postgres, driver)
 	}
 	if provider == nil {
 		config.Dataprovider.Bolt.DbPath = "./ddrv.db"
-		provider = bolt.New(driver, &config.Dataprovider.Bolt)
+		provider = boltdb.New(driver, &config.Dataprovider.Bolt)
 	}
 	dp.Load(provider)
 
