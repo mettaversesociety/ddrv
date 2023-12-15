@@ -1,4 +1,4 @@
-# .github/workflows/release.yaml
+name: Ddrv Binary
 
 on:
   release:
@@ -31,7 +31,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/ddrv"
           binary_name: "ddrv"
-          compress_assets: "zip"
+          compress_assets: "OFF"
           extra_files: config/config_example.yaml
           executable_compression: "upx --ultra-brute"
   release-migrate:

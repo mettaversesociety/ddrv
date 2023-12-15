@@ -39,7 +39,7 @@ USAGE
 USAGE DOCKER
 ------------
 - Prepare config.yaml, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'
-- Command - 'docker run --network=host -v="./config.yaml:/app/config.yaml" --rm --name=ddrv ddrv'
+- Command - 'docker run --network=host -v="./config.yaml:/app/config.yaml" --rm --name=ddrv forscht/ddrv'
 
 
 CONFIGURATION FILE
