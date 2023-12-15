@@ -33,6 +33,8 @@ jobs:
           binary_name: "ddrv"
           compress_assets: "OFF"
           executable_compression: "upx --ultra-brute"
+          md5sum: false
+          ldflags: "-s -w"
   release-migrate:
     name: Release migrate binary
     permissions:
@@ -61,3 +63,5 @@ jobs:
           binary_name: "migrate"
           compress_assets: "OFF"
           executable_compression: "upx --ultra-brute"
+          md5sum: false
+          ldflags: "-s -w"
