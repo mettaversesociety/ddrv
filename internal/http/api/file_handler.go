@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/forscht/ddrv/internal/config"
 	dp "github.com/forscht/ddrv/internal/dataprovider"
 	"github.com/forscht/ddrv/pkg/ddrv"
 	"github.com/forscht/ddrv/pkg/httprange"
@@ -23,7 +23,7 @@ func GetFileHandler() fiber.Handler {
 
 		file, err := dp.Get(id, dirId)
 		if err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
 			return err
@@ -33,7 +33,7 @@ func GetFileHandler() fiber.Handler {
 	}
 }
 
-func CreateFileHandler(mgr *ddrv.Manager) fiber.Handler {
+func CreateFileHandler(driver *ddrv.Driver) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		dirId := c.Params("dirId")
 		body := c.Context().RequestBodyStream()
@@ -59,30 +59,30 @@ func CreateFileHandler(mgr *ddrv.Manager) fiber.Handler {
 			}
 			if part.FormName() == "file" {
 				fileName := part.FileName()
-				if err := validate.Struct(dp.File{Name: fileName, Parent: ns.NullString(dirId)}); err != nil {
+				if err = validate.Struct(dp.File{Name: fileName, Parent: ns.NullString(dirId)}); err != nil {
 					return fiber.NewError(StatusBadRequest, err.Error())
 				}
 
 				file, err := dp.Create(fileName, dirId, false)
 				if err != nil {
-					if err == dp.ErrExist || err == dp.ErrInvalidParent {
+					if errors.Is(err, dp.ErrExist) || err == dp.ErrInvalidParent {
 						return fiber.NewError(StatusBadRequest, err.Error())
 					}
 					return err
 				}
 
-				nodes := make([]*dp.Node, 0)
+				nodes := make([]ddrv.Node, 0)
 
 				var dwriter io.WriteCloser
-				onChunk := func(a *ddrv.Attachment) {
+				onChunk := func(a ddrv.Node) {
 					file.Size += int64(a.Size)
-					nodes = append(nodes, &dp.Node{URL: a.URL, Size: a.Size})
+					nodes = append(nodes, a)
 				}
 
-				if config.AsyncWrite() {
-					dwriter = mgr.NewNWriter(onChunk)
+				if c.Locals("asyncwrite").(bool) {
+					dwriter = driver.NewNWriter(onChunk)
 				} else {
-					dwriter = mgr.NewWriter(onChunk)
+					dwriter = driver.NewWriter(onChunk)
 				}
 
 				if _, err = io.Copy(dwriter, part); err != nil {
@@ -93,7 +93,7 @@ func CreateFileHandler(mgr *ddrv.Manager) fiber.Handler {
 					return err
 				}
 
-				if err = dp.CreateFileNodes(file.ID, nodes); err != nil {
+				if err = dp.CreateNodes(file.Id, nodes); err != nil {
 					return err
 				}
 
@@ -123,10 +123,10 @@ func UpdateFileHandler() fiber.Handler {
 
 		file, err := dp.Update(id, dirId, file)
 		if err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
-			if err == dp.ErrExist {
+			if errors.Is(err, dp.ErrExist) {
 				return fiber.NewError(StatusBadRequest, err.Error())
 			}
 			return err
@@ -143,7 +143,7 @@ func DelFileHandler() fiber.Handler {
 		dirId := c.Params("dirId")
 
 		if err := dp.Delete(id, dirId); err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
 		}
@@ -152,14 +152,14 @@ func DelFileHandler() fiber.Handler {
 	}
 }
 
-func DownloadFileHandler(mgr *ddrv.Manager) fiber.Handler {
+func DownloadFileHandler(driver *ddrv.Driver) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		id := c.Params("id")
 		name := c.Params("fname")
 
 		f, err := dp.Get(id, "")
 		if err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
 			return err
@@ -176,14 +176,14 @@ func DownloadFileHandler(mgr *ddrv.Manager) fiber.Handler {
 			c.Set(fiber.HeaderContentType, mimeType)
 		}
 
-		nodes, err := dp.GetFileNodes(id)
+		nodes, err := dp.GetNodes(id)
 		if err != nil {
 			return err
 		}
 
-		chunks := make([]ddrv.Attachment, 0)
+		chunks := make([]ddrv.Node, 0)
 		for _, node := range nodes {
-			chunks = append(chunks, ddrv.Attachment{URL: node.URL, Size: node.Size})
+			chunks = append(chunks, ddrv.Node{URL: node.URL, Size: node.Size})
 		}
 
 		fileRange := c.Request().Header.Peek("range")
@@ -195,14 +195,14 @@ func DownloadFileHandler(mgr *ddrv.Manager) fiber.Handler {
 
 			c.Response().Header.Set("Content-Range", r.Header)
 
-			dreader, err := mgr.NewReader(chunks, r.Start)
+			dreader, err := driver.NewReader(chunks, r.Start)
 			if err != nil {
 				return err
 			}
 			c.Status(StatusPartialContent).Response().SetBodyStream(lreader.New(dreader, int(r.Length)), int(r.Length))
 		} else {
 			c.Set(fiber.HeaderAcceptRanges, "bytes")
-			dreader, err := mgr.NewReader(chunks, 0)
+			dreader, err := driver.NewReader(chunks, 0)
 			if err != nil {
 				return err
 			}

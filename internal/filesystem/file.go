@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/forscht/ddrv/internal/config"
 	"github.com/forscht/ddrv/internal/dataprovider"
 	"github.com/forscht/ddrv/pkg/ddrv"
 )
@@ -20,11 +19,12 @@ type File struct {
 
 	flag         int
 	off          int64
-	data         []*dataprovider.Node
+	data         []ddrv.Node
 	readDirCount int
 
-	mgr         *ddrv.Manager
-	chunks      []*ddrv.Attachment
+	fs          *Fs
+	driver      *ddrv.Driver
+	chunks      []ddrv.Node
 	streamWrite io.WriteCloser
 	streamRead  io.ReadCloser
 }
@@ -78,7 +78,7 @@ func (f *File) Readdir(count int) ([]os.FileInfo, error) {
 	}
 	entries := make([]os.FileInfo, len(files))
 	for i, file := range files {
-		entries[i] = convertToAferoFile(file)
+		entries[i] = f.fs.convertToAferoFile(file)
 	}
 	if count > 0 && len(entries) == 0 {
 		err = io.EOF
@@ -93,7 +93,7 @@ func (f *File) Read(p []byte) (n int, err error) {
 		return 0, ErrIsDir
 	}
 	if f.streamRead == nil {
-		if err := f.openReadStream(0); err != nil {
+		if err = f.openReadStream(0); err != nil {
 			return 0, err
 		}
 	}
@@ -134,16 +134,16 @@ func (f *File) Write(p []byte) (int, error) {
 
 	if f.streamWrite == nil {
 		if CheckFlag(os.O_APPEND, f.flag) {
-			if err := dataprovider.DeleteFileNodes(f.id); err != nil {
+			if err := dataprovider.DeleteNodes(f.id); err != nil {
 				return 0, err
 			}
 		}
-		if config.AsyncWrite() {
-			f.streamWrite = f.mgr.NewNWriter(func(chunk *ddrv.Attachment) {
+		if f.fs.asyncWrite {
+			f.streamWrite = f.driver.NewNWriter(func(chunk ddrv.Node) {
 				f.chunks = append(f.chunks, chunk)
 			})
 		} else {
-			f.streamWrite = f.mgr.NewWriter(func(chunk *ddrv.Attachment) {
+			f.streamWrite = f.driver.NewWriter(func(chunk ddrv.Node) {
 				f.chunks = append(f.chunks, chunk)
 			})
 		}
@@ -198,11 +198,7 @@ func (f *File) Close() error {
 		if len(f.chunks) == 1 && f.chunks[0].Size == 0 {
 			return nil
 		}
-		nodes := make([]*dataprovider.Node, len(f.chunks))
-		for i, chunk := range f.chunks {
-			nodes[i] = convertToNode(chunk)
-		}
-		err := dataprovider.CreateFileNodes(f.id, nodes)
+		err := dataprovider.CreateNodes(f.id, f.chunks)
 		if err != nil {
 			return err
 		}
@@ -219,19 +215,10 @@ func (f *File) Close() error {
 }
 
 func (f *File) openReadStream(startAt int64) error {
-	chunks := make([]ddrv.Attachment, len(f.data))
-	for i, node := range f.data {
-		chunks[i] = ddrv.Attachment{URL: node.URL, Size: node.Size}
-	}
-
-	stream, err := f.mgr.NewReader(chunks, startAt)
+	stream, err := f.driver.NewReader(f.data, startAt)
 	if err != nil {
 		return err
 	}
 	f.streamRead = stream
 	return nil
-}
-
-func convertToNode(chunk *ddrv.Attachment) *dataprovider.Node {
-	return &dataprovider.Node{URL: chunk.URL, Size: chunk.Size}
 }

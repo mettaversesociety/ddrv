@@ -7,23 +7,23 @@ import (
 // Writer implements io.WriteCloser.
 // It streams data in chunks to Discord server channels using webhook
 type Writer struct {
-	mgr       *Manager // Manager where Writer writes data
-	chunkSize int      // The maximum Size of a chunk
-	onChunk   func(chunk *Attachment)
+	rest      *Rest // Manager where Writer writes data
+	chunkSize int   // The maximum Size of a chunk
+	onChunk   func(chunk Node)
 
-	idx     int              // Current position in the current chunk
-	closed  bool             // Whether the Writer has been closed
-	errCh   chan error       // Channel to send any errors that occur during writing
-	chunkCh chan *Attachment // Channel to send chunks after they're written
-	pwriter *io.PipeWriter   // PipeWriter for writing the current chunk
+	idx     int            // Current position in the current chunk
+	closed  bool           // Whether the Writer has been closed
+	errCh   chan error     // Channel to send any errors that occur during writing
+	chunkCh chan Node      // Channel to send chunks after they're written
+	pwriter *io.PipeWriter // PipeWriter for writing the current chunk
 }
 
 // NewWriter creates a new Writer with the given chunk Size and manager.
-func NewWriter(onChunk func(chunk *Attachment), chunkSize int, mgr *Manager) io.WriteCloser {
+func NewWriter(onChunk func(chunk Node), chunkSize int, rest *Rest) io.WriteCloser {
 	w := &Writer{
-		mgr:       mgr,
-		errCh:     make(chan error, 0),
-		chunkCh:   make(chan *Attachment, 0),
+		rest:      rest,
+		errCh:     make(chan error),
+		chunkCh:   make(chan Node),
 		onChunk:   onChunk,
 		chunkSize: chunkSize,
 	}
@@ -47,7 +47,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 			if err != nil {
 				return total, err
 			}
-			if err := w.flush(true); err != nil {
+			if err = w.flush(true); err != nil {
 				return total, err
 			}
 			p = p[n:]
@@ -99,12 +99,12 @@ func (w *Writer) next() {
 		reader, writer := io.Pipe()
 		w.pwriter = writer
 		go func() {
-			chunk, err := w.mgr.write(reader)
+			chunk, err := w.rest.CreateAttachment(reader)
 			if err != nil {
 				w.errCh <- err
 			} else {
 				w.idx = 0
-				w.chunkCh <- chunk
+				w.chunkCh <- *chunk
 			}
 		}()
 	}

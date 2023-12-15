@@ -7,16 +7,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-
-	"github.com/forscht/ddrv/internal/config"
 )
 
 func LoginHandler() fiber.Handler {
-	username := config.Username()
-	password := config.Password()
-
-	secretKey := fmt.Sprintf("%s:%s", username, password)
 	return func(c *fiber.Ctx) error {
+		username := c.Locals("username").(string)
+		password := c.Locals("password").(string)
+		secretKey := fmt.Sprintf("%s:%s", username, password)
+
 		user := new(User)
 		err := c.BodyParser(user)
 		if err != nil {
@@ -44,9 +42,14 @@ func LoginHandler() fiber.Handler {
 }
 
 func AuthHandler() fiber.Handler {
-	guestAllowed := config.HTTPGuest()
-	secretKey := fmt.Sprintf("%s:%s", config.Username(), config.Password())
 	return func(c *fiber.Ctx) error {
+		guestAllowed := c.Locals("guestmode").(bool)
+		username := c.Locals("username").(string)
+		password := c.Locals("password").(string)
+		if username == "" && password == "" {
+			return c.Next()
+		}
+		secretKey := fmt.Sprintf("%s:%s", username, password)
 		// If guests are allowed, enable readonly ops
 		if guestAllowed {
 			switch c.Method() {
@@ -81,15 +84,18 @@ func AuthHandler() fiber.Handler {
 
 func AuthConfigHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		username := c.Locals("username").(string)
+		password := c.Locals("password").(string)
+		anonymous := c.Locals("guestmode").(bool)
 		login := true
-		if config.Username() == "" || config.Password() == "" {
+		if username == "" || password == "" {
 			login = false
 		}
 		response := Response{
 			Message: "config retrieved",
 			Data: map[string]interface{}{
 				"login":     login,
-				"anonymous": config.HTTPGuest(),
+				"anonymous": anonymous,
 			},
 		}
 		return c.Status(StatusOk).JSON(response)

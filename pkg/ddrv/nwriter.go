@@ -16,24 +16,24 @@ import (
 // at the cost of high-memory usage.
 // expected memory usage - (chunkSize * number of webhooks) + 20% bytes
 type NWriter struct {
-	mgr       *Manager // Manager where Writer writes data
-	chunkSize int      // The maximum Size of a chunk
-	onChunk   func(chunk *Attachment)
+	rest      *Rest // Manager where Writer writes data
+	chunkSize int   // The maximum Size of a chunk
+	onChunk   func(chunk Node)
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
 	closed       bool // Whether the Writer has been closed
 	err          error
-	chunks       []*Attachment
+	chunks       []Node
 	pwriter      *io.PipeWriter // PipeWriter for writing the current chunk
 	chunkCounter int64
 }
 
-func NewNWriter(onChunk func(chunk *Attachment), chunkSize int, mgr *Manager) io.WriteCloser {
+func NewNWriter(onChunk func(chunk Node), chunkSize int, rest *Rest) io.WriteCloser {
 	reader, writer := io.Pipe()
 	w := &NWriter{
-		mgr:       mgr,
+		rest:      rest,
 		onChunk:   onChunk,
 		chunkSize: chunkSize,
 		pwriter:   writer,
@@ -72,11 +72,11 @@ func (w *NWriter) Close() error {
 			w.onChunk(chunk)
 		}
 	}
-	return nil
+	return w.err
 }
 
 func (w *NWriter) startWorkers(reader io.Reader) {
-	concurrency := len(w.mgr.clients)
+	concurrency := len(w.rest.channels)
 	w.wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
 		go func() {
@@ -89,14 +89,14 @@ func (w *NWriter) startWorkers(reader io.Reader) {
 				n, err := reader.Read(buff)
 				if n > 0 {
 					cIdx := atomic.AddInt64(&w.chunkCounter, 1)
-					attachment, werr := w.mgr.write(bytes.NewReader(buff[:n]))
+					attachment, werr := w.rest.CreateAttachment(bytes.NewReader(buff[:n]))
 					if werr != nil {
 						w.err = werr
 						return
 					}
 					w.mu.Lock()
 					attachment.Start = cIdx
-					w.chunks = append(w.chunks, attachment)
+					w.chunks = append(w.chunks, *attachment)
 					w.mu.Unlock()
 				}
 				if err != nil {

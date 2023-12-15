@@ -236,6 +236,7 @@ app.service('FMService', ['$http', function ($http) {
         getDir: async function (id) {
             const endpoint = id ? '/api/directories/' + id : '/api/directories'
             const {data: {data: dir}} = await $http.get(endpoint)
+            if (!dir.files) dir.files = []
             dir.files = dir.files.map(f => {
                 return {...f, size: f.dir ? 'folder' : humanReadableSize(f.size), selected: false}
             })

@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/fclairamb/ftpserverlib"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 
-	"github.com/forscht/ddrv/internal/config"
+	"github.com/forscht/ddrv/internal/filesystem"
+	"github.com/forscht/ddrv/pkg/ddrv"
 )
 
 const IPResolveURL = "https://ipinfo.io/ip"
@@ -22,30 +23,34 @@ var (
 	ErrBadUserNameOrPassword = errors.New("bad username or password") // Error for failed authentication
 )
 
-// New creates a new FTP server instance with the provided file system and address.
-func New(
-	fs afero.Fs,
-) *ftpserver.FtpServer { // Return a pointer to an FTP server instance
+type Config struct {
+	Addr       string `mapstructure:"addr"`
+	Username   string `mapstructure:"username"`
+	Password   string `mapstructure:"password"`
+	PortRange  string `mapstructure:"port_range"`
+	AsyncWrite bool   `mapstructure:"async_write"`
+}
 
-	addr := config.FTPAddr()
-	ptr := config.FTPPortRange()
-	username := config.Username()
-	password := config.Password()
-
+func Serv(drvr *ddrv.Driver, cfg *Config) error {
+	// If Addr not provided, do not start FTP server
+	if cfg.Addr == "" {
+		return nil
+	}
 	var portRange *ftpserver.PortRange
-	if ptr != "" {
+	if cfg.PortRange != "" {
 		portRange = &ftpserver.PortRange{}
-		if _, err := fmt.Sscanf(ptr, "%d-%d", &portRange.Start, &portRange.End); err != nil {
-			log.Fatalf("bad ftp port range %v", err)
+		if _, err := fmt.Sscanf(cfg.PortRange, "%d-%d", &portRange.Start, &portRange.End); err != nil {
+			log.Fatal().Str("c", "ftpserver").Int("portstart", portRange.Start).
+				Int("portend", portRange.End).Err(err).Msg("bad port range")
 		}
 	}
-
+	fs := filesystem.New(drvr, cfg.AsyncWrite)
 	driver := &Driver{
-		Fs:       fs,       // The file system to serve over FTP
-		username: username, // Username for authentication
-		password: password, // Password for authentication
+		Fs:       fs,           // The file system to serve over FTP
+		username: cfg.Username, // Username for authentication
+		password: cfg.Password, // Password for authentication
 		Settings: &ftpserver.Settings{
-			ListenAddr:          addr,                         // The network address to listen on
+			ListenAddr:          cfg.Addr,                     // The network address to listen on
 			DefaultTransferType: ftpserver.TransferTypeBinary, // Default to binary transfer mode
 			// Stooopid FTP thinks connection is idle, even when file transfer is going on.
 			// Default is 900 seconds so, after which the server will drop the connection
@@ -74,8 +79,9 @@ func New(
 
 	// Instantiate the FTP server with the driver and return a pointer to it
 	server := ftpserver.NewFtpServer(driver)
+	log.Info().Str("c", "ftp").Str("addr", cfg.Addr).Msg("starting ftp server")
 
-	return server
+	return server.ListenAndServe()
 }
 
 // Driver is the FTP server driver implementation.
@@ -89,19 +95,23 @@ type Driver struct {
 
 // ClientConnected is called when a client is connected to the FTP server.
 func (d *Driver) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	log.Printf("new conn - addr:%s id: %d", cc.RemoteAddr(), cc.ID()) // Log the new connection details
-	return "Ditto FTP Server", nil                                    // Return a welcome message
+	log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).
+		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("client connected")
+	return "DDrv FTP Server", nil // Return a welcome message
 }
 
 // ClientDisconnected is called when a client is disconnected from the FTP server.
 func (d *Driver) ClientDisconnected(cc ftpserver.ClientContext) {
-	log.Printf("lost conn - addr:%s id: %d", cc.RemoteAddr(), cc.ID()) // Log the lost connection details
+	log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).
+		Str("client", cc.GetClientVersion()).Uint32("id", cc.ID()).Msg("client disconnected")
 }
 
 // AuthUser authenticates a user during the FTP server login process.
-func (d *Driver) AuthUser(_ ftpserver.ClientContext, user, pass string) (ftpserver.ClientDriver, error) {
+func (d *Driver) AuthUser(cc ftpserver.ClientContext, user, pass string) (ftpserver.ClientDriver, error) {
 	// If authentication is required, check the provided username and password against the expected values
 	if d.username != "" && d.username != user || d.password != "" && d.password != pass {
+		log.Info().Str("c", "ftpserver").Str("addr", cc.RemoteAddr().String()).Uint32("id", cc.ID()).
+			Str("user", user).Str("pass", pass).Err(ErrBadUserNameOrPassword).Msg("authentication failed")
 		return nil, ErrBadUserNameOrPassword // If either check fails, return an authentication error
 	}
 	return d.Fs, nil // If the checks pass or authentication is not required, proceed with the provided file system

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 
 	dp "github.com/forscht/ddrv/internal/dataprovider"
@@ -11,7 +13,7 @@ func GetDirHandler() fiber.Handler {
 		id := c.Params("id")
 		dir, err := dp.Get(id, "")
 		if err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
 			return err
@@ -40,7 +42,7 @@ func CreateDirHandler() fiber.Handler {
 
 		file, err := dp.Create(file.Name, string(file.Parent), true)
 		if err != nil {
-			if err == dp.ErrExist || err == dp.ErrInvalidParent {
+			if errors.Is(err, dp.ErrExist) || err == dp.ErrInvalidParent {
 				return fiber.NewError(StatusBadRequest, err.Error())
 			}
 			return err
@@ -66,10 +68,10 @@ func UpdateDirHandler() fiber.Handler {
 
 		dir, err := dp.Update(id, "", dir)
 		if err != nil {
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
-			if err == dp.ErrExist {
+			if errors.Is(err, dp.ErrExist) {
 				return fiber.NewError(StatusBadRequest, err.Error())
 			}
 			return err
@@ -85,10 +87,10 @@ func DelDirHandler() fiber.Handler {
 		id := c.Params("id")
 
 		if err := dp.Delete(id, ""); err != nil {
-			if err == dp.ErrPermission {
+			if errors.Is(err, dp.ErrPermission) {
 				return fiber.NewError(StatusForbidden, err.Error())
 			}
-			if err == dp.ErrNotExist {
+			if errors.Is(err, dp.ErrNotExist) {
 				return fiber.NewError(StatusNotFound, err.Error())
 			}
 			return err

@@ -1,4 +1,4 @@
-package pgsql
+package postgres
 
 import (
 	"github.com/forscht/ddrv/pkg/migrate"
@@ -70,5 +70,20 @@ var migrations = []migrate.Migration{
 		ID:   3,
 		Up:   migrate.Queries([]string{`CREATE INDEX idx_node_file ON node (file);`}),
 		Down: migrate.Queries([]string{`DROP INDEX idx_node_file;`}),
+	},
+	{
+		ID:   4,
+		Up:   migrate.Queries([]string{`CREATE INDEX idx_node_size ON node (size);`}),
+		Down: migrate.Queries([]string{`DROP INDEX idx_node_size;`}),
+	},
+	{
+		ID:   5,
+		Up:   migrate.Queries([]string{`ALTER TABLE node ADD COLUMN mid BIGINT, ADD COLUMN ex INT, ADD COLUMN "is" INT, ADD COLUMN hm VARCHAR(255);`}),
+		Down: migrate.Queries([]string{`ALTER TABLE node DROP COLUMN mid, DROP COLUMN ex, DROP COLUMN "is", DROP COLUMN hm;`}),
+	},
+	{
+		ID:   6,
+		Up:   migrate.Queries([]string{`CREATE UNIQUE INDEX IF NOT EXISTS idx_node_mid_unique ON node(mid);`}),
+		Down: migrate.Queries([]string{`DROP INDEX IF EXISTS idx_node_mid_unique;`}),
 	},
 }

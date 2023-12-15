@@ -1,77 +1,119 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
+	"os"
 	"runtime"
-	"strings"
+	"time"
 
-	"github.com/alecthomas/kong"
-	"github.com/joho/godotenv"
+	zl "github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 
-	"github.com/forscht/ddrv/internal/config"
-	"github.com/forscht/ddrv/internal/dataprovider"
-	"github.com/forscht/ddrv/internal/filesystem"
+	dp "github.com/forscht/ddrv/internal/dataprovider"
+	"github.com/forscht/ddrv/internal/dataprovider/bolt"
+	"github.com/forscht/ddrv/internal/dataprovider/postgres"
 	"github.com/forscht/ddrv/internal/ftp"
 	"github.com/forscht/ddrv/internal/http"
-	"github.com/forscht/ddrv/internal/webdav"
 	"github.com/forscht/ddrv/pkg/ddrv"
 )
 
+// Config represents the entire configuration as defined in the YAML file.
+type Config struct {
+	Ddrv struct {
+		Token      string `mapstructure:"token"`
+		TokenType  int    `mapstructure:"token_type"`
+		Channels   string `mapstructure:"channels"`
+		AsyncWrite bool   `mapstructure:"async_write"`
+		ChunkSize  int    `mapstructure:"chunk_size"`
+	} `mapstructure:"ddrv"`
+
+	Dataprovider struct {
+		Bolt     bolt.Config     `mapstructure:"boltdb"`
+		Postgres postgres.Config `mapstructure:"postgres"`
+	} `mapstructure:"dataprovider"`
+
+	Frontend struct {
+		FTP  ftp.Config  `mapstructure:"ftp"`
+		HTTP http.Config `mapstructure:"http"`
+	} `mapstructure:"frontend"`
+}
+
+var config Config
+
+var (
+	showVersion = flag.Bool("version", false, "print version information and exit")
+	debugMode   = flag.Bool("debug", false, "enable debug logs")
+	configFile  = flag.String("config", "", "path to ddrv configuration file")
+)
+
 func main() {
+	flag.Parse()
+
+	// Check if a version flag is set
+	if *showVersion {
+		fmt.Printf("ddrv: %s\n", version)
+		os.Exit(0)
+	}
+
 	// Set the maximum number of operating system threads to use.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	// Load env file.
-	_ = godotenv.Load()
-
-	// Parse command line arguments into config
-	kong.Parse(config.New(), kong.Vars{
-		"version": fmt.Sprintf("ddrv %s", version),
-	})
-
-	// Make sure chunkSize is below 25MB
-	if config.ChunkSize() > 25*1024*1024 || config.ChunkSize() < 0 {
-		log.Fatalf("ddrv: invalid chunkSize %d", config.ChunkSize())
+	// Setup logger
+	log.Logger = zl.New(zl.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}).With().Timestamp().Logger()
+	zl.SetGlobalLevel(zl.InfoLevel)
+	if *debugMode {
+		zl.SetGlobalLevel(zl.DebugLevel)
 	}
 
-	// Create a ddrv manager
-	mgr, err := ddrv.NewManager(config.ChunkSize(), strings.Split(config.Webhooks(), ","))
+	// Load config file
+	initConfig()
+
+	// Create a ddrv driver
+	driver, err := ddrv.New((*ddrv.Config)(&config.Ddrv))
 	if err != nil {
-		log.Fatalf("ddrv: failed to open ddrv mgr :%v", err)
+		log.Fatal().Err(err).Str("c", "main").Msg("failed to open ddrv driver")
 	}
 
-	// Create FS object
-	fs := filesystem.New(mgr)
-
-	// New data provider
-	dataprovider.New()
+	// Load data provider
+	var provider dp.DataProvider
+	if config.Dataprovider.Bolt.DbPath != "" {
+		provider = bolt.New(driver, &config.Dataprovider.Bolt)
+	}
+	if provider == nil && config.Dataprovider.Postgres.DbURL != "" {
+		provider = postgres.New(&config.Dataprovider.Postgres, driver)
+	}
+	if provider == nil {
+		config.Dataprovider.Bolt.DbPath = "./ddrv.db"
+		provider = bolt.New(driver, &config.Dataprovider.Bolt)
+	}
+	dp.Load(provider)
 
 	errCh := make(chan error)
+	// Create and start ftp server
+	go func() { errCh <- ftp.Serv(driver, &config.Frontend.FTP) }()
+	// Create and start http server
+	go func() { errCh <- http.Serv(driver, &config.Frontend.HTTP) }()
 
-	if config.FTPAddr() != "" {
-		go func() {
-			// Create and start ftp server
-			ftpServer := ftp.New(fs)
-			log.Printf("ddrv: starting FTP server on : %s", config.FTPAddr())
-			errCh <- ftpServer.ListenAndServe()
-		}()
-	}
-	if config.HTTPAddr() != "" {
-		go func() {
-			httpServer := http.New(mgr)
-			log.Printf("ddrv: starting HTTP server on : %s", config.HTTPAddr())
-			errCh <- httpServer.Listen(config.HTTPAddr())
-		}()
-	}
+	log.Fatal().Msgf("ddrv: error %v", <-errCh)
+}
 
-	if config.WDAddr() != "" {
-		go func() {
-			webdavServer := webdav.New(fs)
-			log.Printf("ddrv: starting WEBDAV server on : %s", config.WDAddr())
-			errCh <- webdavServer.ListenAndServe()
-		}()
+func initConfig() {
+	// Setup config
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.config/ddrv/")
+	if *configFile != "" {
+		viper.SetConfigFile(*configFile)
+	}
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
 
-	log.Fatalf("ddrv: ddrv error %v", <-errCh)
+	err := viper.Unmarshal(&config)
+	if err != nil {
+		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
+	}
 }

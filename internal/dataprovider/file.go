@@ -7,17 +7,10 @@ import (
 )
 
 type File struct {
-	ID     string        `json:"id"`
-	Name   string        `json:"name" validate:"required,regex=^[A-Za-z0-9_][A-Za-z0-9_. -]*[A-Za-z0-9_]$"`
+	Id     string        `json:"id"`
+	Name   string        `json:"name" validate:"required,regex=^[\p{L}]+$"`
 	Dir    bool          `json:"dir"`
 	Size   int64         `json:"size,omitempty"`
-	Parent ns.NullString `json:"parent,omitempty" validate:"required,uuid"`
+	Parent ns.NullString `json:"parent,omitempty" validate:"required"`
 	MTime  time.Time     `json:"mtime"`
-}
-
-type Node struct {
-	ID   int64 // snowflake id
-	URL  string
-	Size int
-	Iv   string
 }

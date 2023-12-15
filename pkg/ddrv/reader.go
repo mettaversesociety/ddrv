@@ -5,17 +5,17 @@ import "io"
 // Reader is a structure that manages the reading of a sequence of Chunks.
 // It reads chunks in order, closing each one after it's Read and moving on to the next.
 type Reader struct {
-	chunks []Attachment  // The sequence of chunks to be Read.
+	chunks []Node        // The list of chunks to be Read.
 	curIdx int           // Index of the chunk that is currently being Read.
 	closed bool          // Indicates whether the Reader has been closed.
-	disc   *Manager      // Manager object provides access to the chunks.
+	rest   *Rest         // rest object provides access to the chunks.
 	reader io.ReadCloser // The reader that is reading the current chunk.
 	pos    int64
 }
 
 // NewReader creates new Reader instance which implements io.ReadCloser.
-func NewReader(chunks []Attachment, pos int64, arc *Manager) (io.ReadCloser, error) {
-	r := &Reader{chunks: chunks, pos: pos, disc: arc}
+func NewReader(chunks []Node, pos int64, rest *Rest) (io.ReadCloser, error) {
+	r := &Reader{chunks: chunks, pos: pos, rest: rest}
 	// Calculate Start and End for each part
 	var offset int64
 	for i := range r.chunks {
@@ -110,7 +110,7 @@ func (r *Reader) next() error {
 		start = int(r.pos - chunk.Start)
 	}
 
-	reader, err := r.disc.read(chunk.URL, start, chunk.Size-1)
+	reader, err := r.rest.ReadAttachment(&chunk, start, chunk.Size-1)
 	if err != nil {
 		return err
 	}

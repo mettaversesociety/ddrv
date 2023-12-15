@@ -33,10 +33,7 @@ func validateRegex(fl validator.FieldLevel) bool {
 	field := fl.Field()
 	regexTag := fl.Param()
 
-	regex, err := regexp.Compile(regexTag)
-	if err != nil {
-		log.Fatalf("invalid regex pattern: %s", regexTag)
-	}
+	regex := regexp.MustCompile(regexTag)
 
 	return regex.MatchString(field.String())
 }

@@ -4,6 +4,7 @@ package migrate
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"sort"
@@ -92,7 +93,7 @@ type postgresLocker struct {
 
 // NewPostgresLocker returns a new sync.Locker that obtains locks with
 // pg_advisory_lock.
-func newPostgresLocker(db *sql.DB) sync.Locker {
+func NewPostgresLocker(db *sql.DB) sync.Locker {
 	key := crc32.ChecksumIEEE([]byte("migrations"))
 	return &postgresLocker{
 		key: key,
@@ -128,10 +129,10 @@ func NewMigrator(db *sql.DB) *Migrator {
 
 // NewPostgresMigrator returns a new Migrator instance that uses the underlying
 // sql.DB connection to a postgres database to perform migrations. It will use
-// Postgres's advisory locks to ensure that only 1 migration is run at a time.
+// Postgres advisory locks to ensure that only 1 migration is run at a time.
 func NewPostgresMigrator(db *sql.DB) *Migrator {
 	m := NewMigrator(db)
-	m.Locker = newPostgresLocker(db)
+	m.Locker = NewPostgresLocker(db)
 	return m
 }
 
@@ -184,7 +185,7 @@ func (m *Migrator) Exec(dir MigrationDirection, migrations ...Migration) error {
 
 // runMigration runs the given Migration in the given direction using the given
 // transaction. This function does not commit or rollback the transaction,
-// that's the responsibility of the consumer dependending on whether an error
+// that's the responsibility of the consumer dependence on whether an error
 // gets returned.
 func (m *Migrator) runMigration(tx *sql.Tx, dir MigrationDirection, migration Migration) error {
 	shouldMigrate, err := m.shouldMigrate(tx, migration.ID, dir)
@@ -229,17 +230,17 @@ func (m *Migrator) shouldMigrate(tx *sql.Tx, id int, dir MigrationDirection) (bo
 	// Check if this migration has already ran
 	var _id int
 	err := tx.QueryRow(fmt.Sprintf("SELECT version FROM %s WHERE version = %d", m.table(), id)).Scan(&_id)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
 
 	switch dir {
 	case Up:
 		// If the migration doesn't exist, then we need to run it.
-		return err == sql.ErrNoRows, nil
+		return errors.Is(err, sql.ErrNoRows), nil
 	default:
 		// If the migration exists, then we need to remove it.
-		return err != sql.ErrNoRows, nil
+		return !errors.Is(err, sql.ErrNoRows), nil
 	}
 }
 
