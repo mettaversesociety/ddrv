@@ -35,6 +35,7 @@ jobs:
           executable_compression: "upx --ultra-brute"
           md5sum: false
           ldflags: "-s -w"
+          asset_name: "ddrv-${{ matrix.goos }}-${{ matrix.goarch }}"
   release-migrate:
     name: Release migrate binary
     permissions:
@@ -65,3 +66,4 @@ jobs:
           executable_compression: "upx --ultra-brute"
           md5sum: false
           ldflags: "-s -w"
+          asset_name: "migrate-${{ matrix.goos }}-${{ matrix.goarch }}"
