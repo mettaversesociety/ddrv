@@ -32,7 +32,6 @@ jobs:
           project_path: "./cmd/ddrv"
           binary_name: "ddrv"
           compress_assets: "OFF"
-          extra_files: config/config_example.yaml
           executable_compression: "upx --ultra-brute"
   release-migrate:
     name: Release migrate binary
@@ -60,3 +59,5 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: "./cmd/migrate"
           binary_name: "migrate"
+          compress_assets: "OFF"
+          executable_compression: "upx --ultra-brute"

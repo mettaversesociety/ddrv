@@ -29,11 +29,10 @@ REQUIREMENTS
 
 USAGE
 -----
-- Get latest binary from 'https://github.com/forscht/ddrv/releases' for your os/platform.
-- Decompress the zip file
+- Get latest binary and config from 'https://github.com/forscht/ddrv/releases' for your os/platform.
 - Copy config_example.yaml -> config.yaml and update config.yaml according to your use case
-- Start Linux / Macos - ./ddrv --config=config.yaml
-- Start Windows - ddrv --config=config.yaml
+- Start Linux / Macos - './ddrv --config=config.yaml'
+- Start Windows - 'ddrv --config=config.yaml'
 
 
 USAGE DOCKER
