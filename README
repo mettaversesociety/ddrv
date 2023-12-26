@@ -7,7 +7,7 @@ HIGHLIGHTS
 ----------
 - Supports multiple protocols, HTTP and FTP(Yes you can mount as fuse using rclone).
 - The frontend is robust. Works with web browsers (HTTP), Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
-- For storing file metadata, PostgreSQL and Bolt (key/value store in pure Go) data providers are supported.
+- For storing file metadata, PostgreSQL and BoltDB (key/value store in pure Go) data providers are supported.
 - HTTP supports partial downloads, so you can use multi-threaded download managers and stream video directly to video players.
 
 
@@ -29,8 +29,8 @@ REQUIREMENTS
 
 USAGE
 -----
-- Get latest binary and config from 'https://github.com/forscht/ddrv/releases' for your os/platform.
-- Copy config_example.yaml -> config.yaml and update config.yaml according to your use case
+- Get latest binary and config file from release page for your os/platform.
+- Update config.yaml according to your use case
 - Start Linux / Macos - './ddrv --config=config.yaml'
 - Start Windows - 'ddrv --config=config.yaml'
 
@@ -40,22 +40,28 @@ USAGE DOCKER
 - Prepare config.yaml, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'
 - Command - 'docker run --network=host -v="./config.yaml:/app/config.yaml" --rm --name=ddrv forscht/ddrv'
 
+BUILD FROM SOURCE
+-----------------
+- Clone this repository
+- Command to build - 'go build -ldflags="-s -w" -o ddrv ./cmd/ddrv'
+
 
 CONFIGURATION FILE
 ------------------
-The ddrv utilizes a configuration file in the YAML format, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'.
-ddrv automatically searches for a file named 'config.yaml' in the current directory and in the $HOME/.config/ddrv directory.
-Alternatively, you can specify a different configuration file by using 'ddrv --config=/path-to-config/config.yaml'.
-
-
-BUILD FROM SOURCE
------------------
-- Install latest GO - 'https://go.dev/doc/install'
-- Clone this repo - 'https://github.com/forscht/ddrv'
-- Command to build - 'go build -ldflags="-s -w" -o ddrv ./cmd/ddrv'
+- Find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'.
+- ddrv automatically searches for a file named 'config.yaml' in below places
+    - ./config.yaml (current directory)
+    - $HOME/.config/ddrv/config.yaml
+- Alternatively, you can specify a different configuration file by using 'ddrv --config=/path-to-config/config.yaml'.
 
 
 SUPPORT
 -------
 - Create GitHub issue at - 'https://github.com/forscht/ddrv/issues'
 - Discord Server - 'https://discord.gg/bdxkPSEKzG'
+
+
+TODO
+----
+- Fix docker image by exposing the ports
+- Move pkg/ddrv to separate repository
