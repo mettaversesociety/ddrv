@@ -17,7 +17,7 @@ type DataProvider interface {
 	Delete(id, parent string) error
 	GetNodes(id string) ([]ddrv.Node, error)
 	CreateNodes(id string, nodes []ddrv.Node) error
-	DeleteNodes(id string) error
+	Truncate(id string) error
 	Stat(path string) (*File, error)
 	Ls(path string, limit int, offset int) ([]*File, error)
 	Touch(path string) error
@@ -55,16 +55,16 @@ func Delete(id, parent string) error {
 	return provider.Delete(id, parent)
 }
 
-func GetNodes(id string) ([]ddrv.Node, error) {
-	return provider.GetNodes(id)
+func GetNodes(fid string) ([]ddrv.Node, error) {
+	return provider.GetNodes(fid)
 }
 
-func CreateNodes(id string, nodes []ddrv.Node) error {
-	return provider.CreateNodes(id, nodes)
+func CreateNodes(fid string, nodes []ddrv.Node) error {
+	return provider.CreateNodes(fid, nodes)
 }
 
-func DeleteNodes(id string) error {
-	return provider.DeleteNodes(id)
+func Truncate(fid string) error {
+	return provider.Truncate(fid)
 }
 
 func Stat(path string) (*File, error) {
