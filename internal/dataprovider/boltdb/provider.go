@@ -2,6 +2,7 @@ package boltdb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -37,6 +38,9 @@ func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 	// Initialize the filesystem root
 	err = db.Update(func(tx *bbolt.Tx) error {
 		if _, err = tx.CreateBucketIfNotExists([]byte("fs")); err != nil {
+			return err
+		}
+		if _, err = tx.CreateBucketIfNotExists([]byte("nodes")); err != nil {
 			return err
 		}
 		rootData := serializeFile(dp.File{Name: "/", Dir: true, MTime: time.Now()})
@@ -147,11 +151,8 @@ func (bfp *Provider) GetNodes(id string) ([]ddrv.Node, error) {
 	currentTimestamp := int(time.Now().Unix())
 	err := bfp.db.Update(func(tx *bbolt.Tx) error {
 		// Get the bucket for the specific file
-		root := tx.Bucket([]byte("nodes"))
-		if root == nil {
-			return nil
-		}
-		bucket := root.Bucket([]byte(decodep(id)))
+		nodesBucket := tx.Bucket([]byte("nodes"))
+		bucket := nodesBucket.Bucket([]byte(decodep(id)))
 		if bucket == nil {
 			return nil
 		}
@@ -188,11 +189,8 @@ func (bfp *Provider) CreateNodes(id string, nodes []ddrv.Node) error {
 		if err != nil {
 			return dp.ErrNotExist
 		}
-		root, err := tx.CreateBucketIfNotExists([]byte("nodes"))
-		if err != nil {
-			return err
-		}
-		bucket, err := root.CreateBucketIfNotExists([]byte(decodep(id)))
+		nodesBucket := tx.Bucket([]byte("nodes"))
+		bucket, err := nodesBucket.CreateBucketIfNotExists([]byte(decodep(id)))
 		if err != nil {
 			return err
 		}
@@ -201,7 +199,7 @@ func (bfp *Provider) CreateNodes(id string, nodes []ddrv.Node) error {
 			node.NId = seq.Int64()
 			file.Size += int64(node.Size)
 			data := serializeNode(node)
-			if err := bucket.Put(seq.Bytes(), data); err != nil {
+			if err = bucket.Put(seq.Bytes(), data); err != nil {
 				return err
 			}
 		}
@@ -211,13 +209,15 @@ func (bfp *Provider) CreateNodes(id string, nodes []ddrv.Node) error {
 	})
 }
 
-func (bfp *Provider) DeleteNodes(id string) error {
+// Truncate Removes all nodes for file if nodes found, does not return error if nodes not found
+func (bfp *Provider) Truncate(id string) error {
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
-		root := tx.Bucket([]byte("nodes"))
-		if root == nil {
-			return fmt.Errorf("root bucket missing")
+		nodes := tx.Bucket([]byte("nodes"))
+		err := nodes.DeleteBucket([]byte(decodep(id)))
+		if errors.Is(err, bbolt.ErrBucketNotFound) {
+			return nil
 		}
-		return root.DeleteBucket([]byte(id))
+		return err
 	})
 }
 
@@ -301,27 +301,39 @@ func (bfp *Provider) Rm(path string) error {
 	path = filepath.Clean(path)
 	log.Debug().Str("cmd", "rm").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("fs"))
+		file := new(dp.File)
+		fs := tx.Bucket([]byte("fs"))
+		nodes := tx.Bucket([]byte("nodes"))
 		// Check if the directory exists
-		if data := b.Get([]byte(path)); data == nil {
+		data := fs.Get([]byte(path))
+		if data == nil {
 			return dp.ErrNotExist
 		}
 		// Delete the specified directory
-		if err := b.Delete([]byte(path)); err != nil {
+		if err := fs.Delete([]byte(path)); err != nil {
+			return err
+		}
+		// Check if the file is dir or not
+		// if the file is not directory then remove nodes and return
+		deserializeFile(file, data)
+		if !file.Dir {
+			err := nodes.DeleteBucket([]byte(decodep(file.Id)))
+			if errors.Is(err, bbolt.ErrBucketNotFound) {
+				return nil
+			}
 			return err
 		}
 		// Delete all children in the directory
 		prefix := []byte(path + "/")
-		c := b.Cursor()
-		file := new(dp.File)
+		c := fs.Cursor()
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			deserializeFile(file, v)
-			if err := b.Delete(k); err != nil {
+			if err := fs.Delete(k); err != nil {
 				return err
 			}
 			if !file.Dir {
-				err := bfp.DeleteNodes(file.Id)
-				if err != nil {
+				err := nodes.DeleteBucket([]byte(decodep(file.Id)))
+				if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
 					return err
 				}
 			}
@@ -378,13 +390,10 @@ func (bfp *Provider) RenameFile(tx *bbolt.Tx, b *bbolt.Bucket, data []byte, oldp
 }
 
 func (bfp *Provider) RenameBucket(tx *bbolt.Tx, oldp, newp string) error {
-	root := tx.Bucket([]byte("nodes"))
-	if root == nil {
-		return nil // No nodes bucket exists, nothing to do
-	}
-	oldBucket := root.Bucket([]byte(oldp))
+	nodesBucket := tx.Bucket([]byte("nodes"))
+	oldBucket := nodesBucket.Bucket([]byte(oldp))
 	if oldBucket != nil {
-		newBucket, err := root.CreateBucketIfNotExists([]byte(newp))
+		newBucket, err := nodesBucket.CreateBucket([]byte(newp))
 		if err != nil {
 			return err
 		}
@@ -394,7 +403,7 @@ func (bfp *Provider) RenameBucket(tx *bbolt.Tx, oldp, newp string) error {
 		if err != nil {
 			return err
 		}
-		if err := root.DeleteBucket([]byte(oldp)); err != nil {
+		if err = nodesBucket.DeleteBucket([]byte(oldp)); err != nil {
 			return err
 		}
 	}

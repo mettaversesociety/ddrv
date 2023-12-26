@@ -181,11 +181,6 @@ func DownloadFileHandler(driver *ddrv.Driver) fiber.Handler {
 			return err
 		}
 
-		chunks := make([]ddrv.Node, 0)
-		for _, node := range nodes {
-			chunks = append(chunks, ddrv.Node{URL: node.URL, Size: node.Size})
-		}
-
 		fileRange := c.Request().Header.Peek("range")
 		if fileRange != nil {
 			r, err := httprange.Parse(string(fileRange), f.Size)
@@ -195,14 +190,14 @@ func DownloadFileHandler(driver *ddrv.Driver) fiber.Handler {
 
 			c.Response().Header.Set("Content-Range", r.Header)
 
-			dreader, err := driver.NewReader(chunks, r.Start)
+			dreader, err := driver.NewReader(nodes, r.Start)
 			if err != nil {
 				return err
 			}
 			c.Status(StatusPartialContent).Response().SetBodyStream(lreader.New(dreader, int(r.Length)), int(r.Length))
 		} else {
 			c.Set(fiber.HeaderAcceptRanges, "bytes")
-			dreader, err := driver.NewReader(chunks, 0)
+			dreader, err := driver.NewReader(nodes, 0)
 			if err != nil {
 				return err
 			}

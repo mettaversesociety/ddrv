@@ -100,7 +100,7 @@ func (fs *Fs) OpenFile(name string, flag int, _ os.FileMode) (afero.File, error)
 	file.driver = fs.driver
 
 	if CheckFlag(os.O_TRUNC, flag) {
-		if err = dp.DeleteNodes(file.id); err != nil {
+		if err = dp.Truncate(file.id); err != nil {
 			return nil, err
 		}
 	}

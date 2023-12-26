@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/forscht/ddrv/internal/dataprovider"
+	dp "github.com/forscht/ddrv/internal/dataprovider"
 	"github.com/forscht/ddrv/pkg/ddrv"
 )
 
@@ -72,7 +72,7 @@ func (f *File) Readdir(count int) ([]os.FileInfo, error) {
 		return nil, ErrIsNotDir
 	}
 
-	files, err := dataprovider.Ls(f.name, count, f.readDirCount)
+	files, err := dp.Ls(f.name, count, f.readDirCount)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (f *File) Write(p []byte) (int, error) {
 
 	if f.streamWrite == nil {
 		if CheckFlag(os.O_APPEND, f.flag) {
-			if err := dataprovider.DeleteNodes(f.id); err != nil {
+			if err := dp.Truncate(f.id); err != nil {
 				return 0, err
 			}
 		}
@@ -198,7 +198,7 @@ func (f *File) Close() error {
 		if len(f.chunks) == 1 && f.chunks[0].Size == 0 {
 			return nil
 		}
-		err := dataprovider.CreateNodes(f.id, f.chunks)
+		err := dp.CreateNodes(f.id, f.chunks)
 		if err != nil {
 			return err
 		}

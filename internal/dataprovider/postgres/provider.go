@@ -254,7 +254,7 @@ func (pgp *PGProvider) CreateNodes(fid string, nodes []ddrv.Node) error {
 	return nil
 }
 
-func (pgp *PGProvider) DeleteNodes(fid string) error {
+func (pgp *PGProvider) Truncate(fid string) error {
 	_, err := pgp.db.Exec("DELETE FROM node WHERE file=$1", fid)
 	return err
 }
