@@ -223,14 +223,14 @@ func (bfp *Provider) Truncate(id string) error {
 
 func (bfp *Provider) Stat(path string) (*dp.File, error) {
 	path = filepath.Clean(path)
-	file := new(dp.File)
+	var file *dp.File
 	err := bfp.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		data := b.Get([]byte(path))
 		if data == nil {
 			return dp.ErrNotExist
 		}
-		deserializeFile(file, data)
+		file = deserializeFile(data)
 		return nil
 	})
 	return file, err
@@ -257,9 +257,8 @@ func (bfp *Provider) Ls(path string, limit int, offset int) ([]*dp.File, error) 
 				skipped++
 				continue
 			}
-			file := new(dp.File)
-			deserializeFile(file, v)
-			files = append(files, file)
+
+			files = append(files, deserializeFile(v))
 			collected++
 		}
 		return nil
@@ -301,7 +300,6 @@ func (bfp *Provider) Rm(path string) error {
 	path = filepath.Clean(path)
 	log.Debug().Str("cmd", "rm").Str("path", path).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
-		file := new(dp.File)
 		fs := tx.Bucket([]byte("fs"))
 		nodes := tx.Bucket([]byte("nodes"))
 		// Check if the directory exists
@@ -315,7 +313,7 @@ func (bfp *Provider) Rm(path string) error {
 		}
 		// Check if the file is dir or not
 		// if the file is not directory then remove nodes and return
-		deserializeFile(file, data)
+		file := deserializeFile(data)
 		if !file.Dir {
 			err := nodes.DeleteBucket([]byte(decodep(file.Id)))
 			if errors.Is(err, bbolt.ErrBucketNotFound) {
@@ -326,16 +324,17 @@ func (bfp *Provider) Rm(path string) error {
 		// Delete all children in the directory
 		prefix := []byte(path + "/")
 		c := fs.Cursor()
-		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			deserializeFile(file, v)
-			if err := fs.Delete(k); err != nil {
+		var filesToDelete [][]byte
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			filesToDelete = append(filesToDelete, k)
+		}
+		for _, f := range filesToDelete {
+			if err := fs.Delete(f); err != nil {
 				return err
 			}
-			if !file.Dir {
-				err := nodes.DeleteBucket([]byte(decodep(file.Id)))
-				if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
-					return err
-				}
+			err := nodes.DeleteBucket(f)
+			if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+				return err
 			}
 		}
 		return nil
@@ -363,9 +362,13 @@ func (bfp *Provider) Mv(oldPath, newPath string) error {
 		prefix := []byte(oldPath + "/")
 		newPrefix := []byte(newPath + "/")
 		c := b.Cursor()
-		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			newKey := append(newPrefix, k[len(prefix):]...)
-			if err := bfp.RenameFile(tx, b, v, string(k), string(newKey)); err != nil {
+		var filesToMove [][]byte
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			filesToMove = append(filesToMove, k)
+		}
+		for _, f := range filesToMove {
+			newKey := append(newPrefix, f[len(prefix):]...)
+			if err := bfp.RenameFile(tx, b, b.Get(f), string(f), string(newKey)); err != nil {
 				return err
 			}
 		}
@@ -374,8 +377,7 @@ func (bfp *Provider) Mv(oldPath, newPath string) error {
 }
 
 func (bfp *Provider) RenameFile(tx *bbolt.Tx, b *bbolt.Bucket, data []byte, oldp, newp string) error {
-	file := new(dp.File)
-	deserializeFile(file, data)
+	file := deserializeFile(data)
 	file.Name = newp
 	if err := b.Delete([]byte(oldp)); err != nil {
 		return err
@@ -420,9 +422,8 @@ func (bfp *Provider) CHTime(path string, newMTime time.Time) error {
 		if fileData == nil {
 			return dp.ErrNotExist
 		}
-		file := new(dp.File)
 		// Deserialize the file data
-		deserializeFile(file, fileData)
+		file := deserializeFile(fileData)
 		// Update the modification time
 		file.MTime = newMTime
 		// Serialize the updated file data

@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/forscht/ddrv/internal/dataprovider"
+	dp "github.com/forscht/ddrv/internal/dataprovider"
 	"github.com/forscht/ddrv/pkg/ddrv"
 	"github.com/forscht/ddrv/pkg/ns"
 )
@@ -32,7 +32,7 @@ func deserializeNode(node *ddrv.Node, data []byte) {
 	}
 }
 
-func serializeFile(file dataprovider.File) []byte {
+func serializeFile(file dp.File) []byte {
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(file)
@@ -42,7 +42,8 @@ func serializeFile(file dataprovider.File) []byte {
 	return buffer.Bytes()
 }
 
-func deserializeFile(file *dataprovider.File, data []byte) {
+func deserializeFile(data []byte) *dp.File {
+	file := new(dp.File)
 	buffer := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buffer)
 	err := dec.Decode(file)
@@ -54,6 +55,7 @@ func deserializeFile(file *dataprovider.File, data []byte) {
 		parent, _ := filepath.Split(file.Name)
 		file.Parent = ns.NullString(encodep(parent))
 	}
+	return file
 }
 
 func decodep(id string) string {
