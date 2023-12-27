@@ -67,18 +67,15 @@ func (d *Driver) NewReader(chunks []Node, pos int64) (io.ReadCloser, error) {
 func (d *Driver) UpdateNodes(chunks []*Node) error {
 	currentTimestamp := int(time.Now().Unix())
 	expired := make(map[int64]*Node)
-
 	for i, chunk := range chunks {
 		if currentTimestamp > chunk.Ex {
 			expired[chunk.MId] = chunks[i]
 		}
 	}
-
 	var messages []Message
 	for mid, chunk := range expired {
 		if currentTimestamp > chunk.Ex {
 			cid := extractChannelId(chunk.URL)
-			fmt.Println(cid)
 			if err := d.Rest.GetMessages(cid, mid-1, "after", &messages); err != nil {
 				return err
 			}

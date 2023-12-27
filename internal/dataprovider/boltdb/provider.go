@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -74,18 +75,18 @@ func (bfp *Provider) Get(id, parent string) (*dp.File, error) {
 }
 
 func (bfp *Provider) Update(id, parent string, file *dp.File) (*dp.File, error) {
-	path := decodep(id)
-	if path == RootDirPath {
+	p := decodep(id)
+	if p == RootDirPath {
 		return nil, dp.ErrPermission
 	}
-	exciting, err := bfp.Stat(path)
+	exciting, err := bfp.Stat(p)
 	if err != nil {
 		return nil, err
 	}
 	if parent != "" && string(exciting.Parent) != parent {
 		return nil, dp.ErrInvalidParent
 	}
-	newp := filepath.Clean(decodep(string(file.Parent)) + "/" + file.Name)
+	newp := path.Clean(decodep(string(file.Parent)) + "/" + file.Name)
 	if err = bfp.Mv(exciting.Name, newp); err != nil {
 		return nil, err
 	}
@@ -113,17 +114,17 @@ func (bfp *Provider) GetChild(id string) ([]*dp.File, error) {
 }
 
 func (bfp *Provider) Create(name, parent string, dir bool) (*dp.File, error) {
-	path := filepath.Clean(decodep(parent) + "/" + name)
-	file := dp.File{Name: path, Dir: dir, MTime: time.Now()}
+	p := path.Clean(decodep(parent) + "/" + name)
+	file := dp.File{Name: p, Dir: dir, MTime: time.Now()}
 	err := bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		existingFile := b.Get([]byte(path))
+		existingFile := b.Get([]byte(p))
 		if existingFile != nil {
 			return dp.ErrExist
 		}
-		return b.Put([]byte(path), serializeFile(file))
+		return b.Put([]byte(p), serializeFile(file))
 	})
-	file.Id = encodep(path)
+	file.Id = encodep(p)
 	file.Name = name
 	return &file, err
 }
@@ -221,12 +222,12 @@ func (bfp *Provider) Truncate(id string) error {
 	})
 }
 
-func (bfp *Provider) Stat(path string) (*dp.File, error) {
-	path = filepath.Clean(path)
+func (bfp *Provider) Stat(p string) (*dp.File, error) {
+	p = path.Clean(p)
 	var file *dp.File
 	err := bfp.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		data := b.Get([]byte(path))
+		data := b.Get([]byte(p))
 		if data == nil {
 			return dp.ErrNotExist
 		}
@@ -236,18 +237,18 @@ func (bfp *Provider) Stat(path string) (*dp.File, error) {
 	return file, err
 }
 
-func (bfp *Provider) Ls(path string, limit int, offset int) ([]*dp.File, error) {
-	path = filepath.Clean(path)
-	log.Debug().Str("cmd", "ls").Str("path", path).Int("limit", limit).Int("offset", offset).Msg("")
+func (bfp *Provider) Ls(p string, limit int, offset int) ([]*dp.File, error) {
+	p = path.Clean(p)
+	log.Debug().Str("cmd", "ls").Str("path", p).Int("limit", limit).Int("offset", offset).Msg("")
 	var files []*dp.File
 	err := bfp.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		c := b.Cursor()
-		prefix := []byte(path)
+		prefix := []byte(p)
 		var skipped, collected int
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			// Skip the root path itself
-			if string(k) == path || !findDirectChild(path, string(k)) {
+			if string(k) == p || !findDirectChild(p, string(k)) {
 				continue
 			}
 			if limit > 0 && collected >= limit {
@@ -266,49 +267,49 @@ func (bfp *Provider) Ls(path string, limit int, offset int) ([]*dp.File, error) 
 	return files, err
 }
 
-func (bfp *Provider) Touch(path string) error {
-	path = filepath.Clean(path)
-	log.Debug().Str("cmd", "touch").Str("path", path).Msg("")
+func (bfp *Provider) Touch(p string) error {
+	p = path.Clean(p)
+	log.Debug().Str("cmd", "touch").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		existingFile := b.Get([]byte(path))
+		existingFile := b.Get([]byte(p))
 		// If the file does not exist, create it
 		if existingFile == nil {
-			data := serializeFile(dp.File{Name: path, Dir: false, MTime: time.Now()})
-			return b.Put([]byte(path), data)
+			data := serializeFile(dp.File{Name: p, Dir: false, MTime: time.Now()})
+			return b.Put([]byte(p), data)
 		}
 		return nil
 	})
 }
 
-func (bfp *Provider) Mkdir(path string) error {
-	path = filepath.Clean(path)
-	log.Debug().Str("cmd", "mkdir").Str("path", path).Msg("")
+func (bfp *Provider) Mkdir(p string) error {
+	p = path.Clean(p)
+	log.Debug().Str("cmd", "mkdir").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		existingFile := b.Get([]byte(path))
+		existingFile := b.Get([]byte(p))
 		// Check if the directory already exists
 		if existingFile != nil {
 			return dp.ErrExist
 		}
-		data := serializeFile(dp.File{Name: path, Dir: true, MTime: time.Now()})
-		return b.Put([]byte(path), data)
+		data := serializeFile(dp.File{Name: p, Dir: true, MTime: time.Now()})
+		return b.Put([]byte(p), data)
 	})
 }
 
-func (bfp *Provider) Rm(path string) error {
-	path = filepath.Clean(path)
-	log.Debug().Str("cmd", "rm").Str("path", path).Msg("")
+func (bfp *Provider) Rm(p string) error {
+	p = path.Clean(p)
+	log.Debug().Str("cmd", "rm").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		fs := tx.Bucket([]byte("fs"))
 		nodes := tx.Bucket([]byte("nodes"))
 		// Check if the directory exists
-		data := fs.Get([]byte(path))
+		data := fs.Get([]byte(p))
 		if data == nil {
 			return dp.ErrNotExist
 		}
 		// Delete the specified directory
-		if err := fs.Delete([]byte(path)); err != nil {
+		if err := fs.Delete([]byte(p)); err != nil {
 			return err
 		}
 		// Check if the file is dir or not
@@ -322,7 +323,7 @@ func (bfp *Provider) Rm(path string) error {
 			return err
 		}
 		// Delete all children in the directory
-		prefix := []byte(path + "/")
+		prefix := []byte(p + "/")
 		c := fs.Cursor()
 		var filesToDelete [][]byte
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
@@ -342,8 +343,8 @@ func (bfp *Provider) Rm(path string) error {
 }
 
 func (bfp *Provider) Mv(oldPath, newPath string) error {
-	oldPath = filepath.Clean(oldPath)
-	newPath = filepath.Clean(newPath)
+	oldPath = path.Clean(oldPath)
+	newPath = path.Clean(newPath)
 	log.Debug().Str("cmd", "mv").Str("new", newPath).Str("old", oldPath).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
@@ -412,12 +413,12 @@ func (bfp *Provider) RenameBucket(tx *bbolt.Tx, oldp, newp string) error {
 	return nil
 }
 
-func (bfp *Provider) CHTime(path string, newMTime time.Time) error {
-	path = filepath.Clean(path)
-	log.Debug().Str("cmd", "chtimes").Str("path", path).Msg("")
+func (bfp *Provider) CHTime(p string, newMTime time.Time) error {
+	p = path.Clean(p)
+	log.Debug().Str("cmd", "chtimes").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		fileData := b.Get([]byte(path))
+		fileData := b.Get([]byte(p))
 		// Check if the file or directory exists
 		if fileData == nil {
 			return dp.ErrNotExist
@@ -427,7 +428,7 @@ func (bfp *Provider) CHTime(path string, newMTime time.Time) error {
 		// Update the modification time
 		file.MTime = newMTime
 		// Serialize the updated file data
-		return b.Put([]byte(path), serializeFile(*file))
+		return b.Put([]byte(p), serializeFile(*file))
 	})
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"path"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
@@ -64,16 +65,16 @@ func decodep(id string) string {
 		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to decode base64")
 	}
 	// Convert the bytes to a string and print it
-	path := string(decoded)
-	if path == "" {
-		path = "/"
+	p := string(decoded)
+	if p == "" {
+		p = "/"
 	}
-	return filepath.Clean(path)
+	return path.Clean(p)
 }
 
-func encodep(path string) string {
-	path = filepath.Clean(path)
-	return base64.StdEncoding.EncodeToString([]byte(path))
+func encodep(p string) string {
+	p = path.Clean(p)
+	return base64.StdEncoding.EncodeToString([]byte(p))
 }
 
 // findDirectChild checks if arg2 is a direct child of arg1.
@@ -82,7 +83,7 @@ func findDirectChild(arg1, arg2 string) bool {
 	dir, _ := filepath.Split(arg2)
 	// The Split function leaves a trailing slash on the directory component,
 	// so we need to clean it again to make it comparable with arg1.
-	dir = filepath.Clean(dir)
+	dir = path.Clean(dir)
 	// Check if the directory part of arg2 matches arg1.
 	return dir == arg1
 }
