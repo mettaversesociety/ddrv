@@ -44,7 +44,7 @@ USAGE
 USAGE DOCKER
 ------------
 - Prepare config.yaml, find a sample config at 'https://github.com/forscht/ddrv/blob/main/config/config_example.yaml'
-- Command - 'docker run -p="2525:2525" -p="2526:2526" -v="./config.yaml:/app/config.yaml" --rm --name=ddrv forscht/ddrv'
+- docker run -p="2525:2525" -p="2526:2526" -v="./config.yaml:/app/config.yaml" --rm --name=ddrv forscht/ddrv
 
 
 BUILD FROM SOURCE

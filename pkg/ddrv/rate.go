@@ -1,7 +1,7 @@
 package ddrv
 
 // Stripped down version of https://github.com/diamondburned/arikawa/blob/v3/api/rate/rate.go
-// This limiter does not lock the bucket so all the call will be concurrent
+// This limiter does not lock the bucket, so all calls will be concurrent
 // Rest must retry on error code 429 as well.
 
 import (

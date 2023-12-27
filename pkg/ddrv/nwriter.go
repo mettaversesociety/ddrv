@@ -10,14 +10,11 @@ import (
 	"github.com/forscht/ddrv/pkg/breader"
 )
 
-// NWriter implements io.WriteCloser.
-// It streams data in chunks to Discord server channels using webhook
-// NWriter buffers bytes into memory and writes data to discord in parallel
-// at the cost of high-memory usage.
-// expected memory usage - (chunkSize * number of webhooks) + 20% bytes
+// NWriter buffers bytes into memory and writes data to discord in parallel at the cost of high-memory usage.
+// Expected memory usage - (chunkSize * number of channels) + 20% bytes
 type NWriter struct {
-	rest      *Rest // Manager where Writer writes data
-	chunkSize int   // The maximum Size of a chunk
+	rest      *Rest
+	chunkSize int // The maximum size of a chunk
 	onChunk   func(chunk Node)
 
 	mu sync.Mutex
@@ -26,7 +23,7 @@ type NWriter struct {
 	closed       bool // Whether the Writer has been closed
 	err          error
 	chunks       []Node
-	pwriter      *io.PipeWriter // PipeWriter for writing the current chunk
+	pwriter      *io.PipeWriter
 	chunkCounter int64
 }
 

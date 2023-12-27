@@ -18,7 +18,7 @@ type Writer struct {
 	pwriter *io.PipeWriter // PipeWriter for writing the current chunk
 }
 
-// NewWriter creates a new Writer with the given chunk Size and manager.
+// NewWriter writes data to discord
 func NewWriter(onChunk func(chunk Node), chunkSize int, rest *Rest) io.WriteCloser {
 	w := &Writer{
 		rest:      rest,
