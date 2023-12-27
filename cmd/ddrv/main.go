@@ -85,8 +85,7 @@ func main() {
 		provider = postgres.New(&config.Dataprovider.Postgres, driver)
 	}
 	if provider == nil {
-		config.Dataprovider.Bolt.DbPath = "./ddrv.db"
-		provider = boltdb.New(driver, &config.Dataprovider.Bolt)
+		log.Fatal().Str("c", "main").Msg("dataprovider config is missing")
 	}
 	dp.Load(provider)
 

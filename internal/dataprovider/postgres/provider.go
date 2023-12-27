@@ -35,8 +35,9 @@ func New(cfg *Config, driver *ddrv.Driver) dp.DataProvider {
 	dbConn := NewDb(cfg.DbURL, false)
 	sg, err := snowflake.NewNode(int64(rand.Intn(1023)))
 	if err != nil {
-		log.Fatal().Err(err).Str("c", "postgres provider").Msg("failed to create snowflake node")
+		log.Fatal().Err(err).Str("c", "postgres").Msg("failed to create snowflake node")
 	}
+	log.Info().Str("c", "postgres").Msg("initialized postgres as dataprovider")
 
 	return &PGProvider{dbConn, sg, driver, locker.New()}
 }
