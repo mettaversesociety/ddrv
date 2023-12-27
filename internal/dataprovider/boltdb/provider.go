@@ -54,6 +54,8 @@ func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 	if err != nil {
 		log.Fatal().Err(err).Str("c", "boltdb provider").Msg("failed to create snowflake node")
 	}
+	log.Info().Str("c", "boltdb provider").Msg("initialized boltdb as dataprovider")
+
 	return &Provider{db, sg, driver, locker.New()}
 }
 
