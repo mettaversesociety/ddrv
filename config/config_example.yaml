@@ -10,14 +10,17 @@ ddrv:
   #   3 - Nitro Basic User token, max chunk size: 50 MB
   token_type: 0
   # List of Discord channel IDs. The bot token user must have "See Channel", "Send Message", "Create Attachment", and "Read Message History" permissions on these channels.
-  channels: your_server_channels_here
+  channels:
+    - channel1
+    - channel2
   # Defines the maximum size (in bytes) of chunks to be sent via Discord API.
   # You should probably never touch this unless you know what you're doing.
   # This setting impacts how data is chunked before being sent to Discord.
-  chunk_size:
+  # Chunk_size:
 
 # Data provider configuration
-# ddrv can use any one data provider at a time. It will select the first one available from top to bottom in this configuration.
+# ddrv can use any one data provider at a time.
+# If you want to use postgres as dataprovider, comment out boltdb part
 dataprovider:
   boltdb:
     # File path for BoltDB database file.

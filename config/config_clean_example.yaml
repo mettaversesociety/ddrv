@@ -1,8 +1,9 @@
 ddrv:
   token: your_token_here
   token_type: 0 # (0 - Bot, 1 - User, 2 - Nitro User, 3 - Basic Nitro User)
-  channels: your_server_channels_here
-  chunk_size:
+  channels:
+    - channel1
+    - channel2
 
 dataprovider:
   boltdb:
