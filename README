@@ -1,11 +1,17 @@
-DDRV - discord as infinite cloud storage.
+ ______   ______   _______  ____   ____
+|_   _ `.|_   _ `.|_   __ \|_  _| |_  _|
+  | | `. \ | | `. \ | |__) | \ \   / /
+  | |  | | | |  | | |  __ /   \ \ / /
+ _| |_.' /_| |_.' /_| |  \ \_  \ ' /
+|______.'|______.'|____| |___|  \_/
 =========================================
-ddrv is not-so-conventional tool to exploit Discord's unlimited file attachment feature for an endless cloud storage solution. You're welcome.
+Not-so-conventional tool to exploit Discord's unlimited file attachment feature for an endless cloud storage solution.
+You're welcome.
 
 
 HIGHLIGHTS
 ----------
-- Supports multiple protocols, HTTP and FTP(Yes you can mount as fuse using rclone).
+- Supports multiple protocols, HTTP and FTP (Yes you can mount as fuse using rclone).
 - The frontend is robust. Works with web browsers (HTTP), Filezilla, RClone, Windows Explorer, Ubuntu (Nautilus), and many more.
 - For storing file metadata, PostgreSQL and BoltDB (key/value store in pure Go) data providers are supported.
 - HTTP supports partial downloads, so you can use multi-threaded download managers and stream video directly to video players.
