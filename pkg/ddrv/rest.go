@@ -228,7 +228,7 @@ type AttachmentResp struct {
 
 func (r *Rest) CreateAttachmentNitro(reader io.Reader) (*Node, error) {
 	//
-	// 1. First request to get upload URL
+	// 1. Request to get upload URL
 	//
 	token := r.token()
 	channelId := r.channel()
@@ -261,7 +261,7 @@ func (r *Rest) CreateAttachmentNitro(reader io.Reader) (*Node, error) {
 	a := ar.Attachments[0]
 
 	//
-	// 2. Second request to upload binary data
+	// 2. Request to upload binary data
 	//
 	req, err = http.NewRequest(http.MethodPut, a.UploadUrl, reader)
 	if err != nil {

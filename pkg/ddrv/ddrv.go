@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -14,19 +13,17 @@ type Driver struct {
 }
 
 type Config struct {
-	Token      string
+	Tokens     []string
 	TokenType  int
-	Channels   string
+	Channels   []string
 	AsyncWrite bool
 	ChunkSize  int
 }
 
 func New(cfg *Config) (*Driver, error) {
-	tokens := strings.Split(cfg.Token, ",")
-	channels := strings.Split(cfg.Channels, ",")
-	if len(tokens) == 0 || len(channels) == 0 {
+	if len(cfg.Tokens) == 0 || len(cfg.Channels) == 0 {
 		return nil,
-			fmt.Errorf("not enough tokens or channels : tokens %d channels %d", len(tokens), len(channels))
+			fmt.Errorf("not enough tokens or channels : tokens %d channels %d", len(cfg.Tokens), len(cfg.Channels))
 	}
 	chunkSize, err := parseChunkSize(cfg.ChunkSize, cfg.TokenType)
 	if err != nil {
@@ -36,12 +33,12 @@ func New(cfg *Config) (*Driver, error) {
 	if chunkSize > 100*1024*1024 && cfg.TokenType == TokenUserNitro {
 		nitro = true
 	}
-	for i, token := range tokens {
+	for i, token := range cfg.Tokens {
 		if cfg.TokenType == TokenBot {
-			tokens[i] = "Bot " + token
+			cfg.Tokens[i] = "Bot " + token
 		}
 	}
-	return &Driver{NewRest(tokens, channels, nitro), chunkSize}, nil
+	return &Driver{NewRest(cfg.Tokens, cfg.Channels, nitro), chunkSize}, nil
 }
 
 // NewWriter creates a new ddrv.Writer instance that implements an io.WriterCloser.
