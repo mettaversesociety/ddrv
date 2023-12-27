@@ -40,28 +40,28 @@ func (lf *LogFs) log(err error) *zerolog.Event {
 // Create calls will be logged
 func (lf *LogFs) Create(name string) (afero.File, error) {
 	src, err := lf.src.Create(name)
-	lf.log(err).Str("op", "create").Str("name", name).Msg("")
+	lf.log(err).Str("name", name).Msg("CREATE")
 	return &LogFsFile{src: src}, err
 }
 
 // Mkdir calls will be logged
 func (lf *LogFs) Mkdir(name string, perm os.FileMode) error {
 	err := lf.src.Mkdir(name, perm)
-	lf.log(err).Str("op", "mkdir").Str("name", name).Any("fmode", perm).Msg("")
+	lf.log(err).Str("name", name).Any("fmode", perm).Msg("MKDIR")
 	return err
 }
 
 // MkdirAll calls will be logged
 func (lf *LogFs) MkdirAll(path string, perm os.FileMode) error {
 	err := lf.src.MkdirAll(path, perm)
-	lf.log(err).Str("op", "mkdirall").Any("fmode", perm).Str("path", path).Msg("")
+	lf.log(err).Any("fmode", perm).Str("path", path).Msg("MKDIR_ALL")
 	return err
 }
 
 // Open calls will be logged
 func (lf *LogFs) Open(name string) (afero.File, error) {
 	src, err := lf.src.Open(name)
-	lf.log(err).Str("op", "open").Str("name", name).Msg("")
+	lf.log(err).Str("name", name).Msg("OPEN")
 	if err != nil {
 		return src, err
 	}
@@ -71,7 +71,7 @@ func (lf *LogFs) Open(name string) (afero.File, error) {
 // OpenFile calls will be logged
 func (lf *LogFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	src, err := lf.src.OpenFile(name, flag, perm)
-	lf.log(err).Str("op", "openfile").Str("name", name).Any("fmode", perm).Int("flag", flag).Msg("")
+	lf.log(err).Str("name", name).Any("fmode", perm).Int("flag", flag).Msg("OPEN_FILE")
 	if err != nil {
 		return src, err
 	}
@@ -81,22 +81,21 @@ func (lf *LogFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, 
 // Remove calls will be logged
 func (lf *LogFs) Remove(name string) error {
 	err := lf.src.Remove(name)
-	lf.log(err).Str("op", "remove").Str("name", name).Msg("")
+	lf.log(err).Str("name", name).Msg("REMOVE")
 	return err
 }
 
 // RemoveAll calls will be logged
 func (lf *LogFs) RemoveAll(path string) error {
 	err := lf.src.RemoveAll(path)
-	lf.log(err).Str("op", "removeall").Str("path", path).Msg("")
+	lf.log(err).Str("path", path).Msg("REMOVE_ALL")
 	return err
 }
 
 // Rename calls will not be logged
 func (lf *LogFs) Rename(oldname, newname string) error {
 	err := lf.src.Rename(oldname, newname)
-	lf.log(err).Str("op", "rename").Str("newname", newname).
-		Str("oldname", oldname).Msg("")
+	lf.log(err).Str("newname", newname).Str("oldname", oldname).Msg("RENAME")
 	return err
 }
 
@@ -132,8 +131,8 @@ func (lff *LogFsFile) Close() error {
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "close").Str("name", lff.src.Name()).
-		Int("lread", lff.lengthRead).Int("lwrite", lff.lengthWritten).Msg("")
+	l.Str("c", "fs").Str("name", lff.src.Name()).
+		Int("lread", lff.lengthRead).Int("lwrite", lff.lengthWritten).Msg("CLOSE")
 	return err
 }
 
@@ -144,7 +143,7 @@ func (lff *LogFsFile) Read(p []byte) (int, error) {
 		lff.lengthRead += n
 	}
 	if err != nil && err != io.EOF {
-		log.Error().Str("c", "fs").Str("op", "read").Str("name", lff.Name()).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Err(err).Msg("READ")
 	}
 	return n, err
 }
@@ -156,8 +155,7 @@ func (lff *LogFsFile) ReadAt(p []byte, off int64) (int, error) {
 		lff.lengthRead += n
 	}
 	if err != nil && err != io.EOF {
-		log.Error().Str("c", "fs").Str("op", "readat").Str("name", lff.Name()).
-			Int64("off", off).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Int64("off", off).Err(err).Msg("READ_AT")
 	}
 	return n, err
 }
@@ -166,8 +164,8 @@ func (lff *LogFsFile) ReadAt(p []byte, off int64) (int, error) {
 func (lff *LogFsFile) Seek(offset int64, whence int) (int64, error) {
 	n, err := lff.src.Seek(offset, whence)
 	if err != nil {
-		log.Error().Str("c", "fs").Str("op", "seek").Str("name", lff.Name()).
-			Int64("off", offset).Int("whence", whence).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Int64("off", offset).
+			Int("whence", whence).Err(err).Msg("SEEK")
 	}
 	return n, err
 }
@@ -179,7 +177,7 @@ func (lff *LogFsFile) Write(p []byte) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Error().Str("c", "fs").Str("op", "write").Str("name", lff.Name()).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Err(err).Msg("WRITE")
 	}
 	return n, err
 }
@@ -191,8 +189,7 @@ func (lff *LogFsFile) WriteAt(p []byte, off int64) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Error().Str("c", "fs").Str("op", "writeat").Str("name", lff.Name()).
-			Int64("off", off).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Int64("off", off).Err(err).Msg("WRITE_AT")
 	}
 	return n, err
 }
@@ -204,7 +201,7 @@ func (lff *LogFsFile) WriteString(str string) (int, error) {
 		lff.lengthWritten += n
 	}
 	if err != nil {
-		log.Error().Str("c", "fs").Str("op", "writestring").Str("name", lff.Name()).Err(err).Msg("")
+		log.Error().Str("c", "fs").Str("name", lff.Name()).Err(err).Msg("WRITE_STRING")
 	}
 	return n, err
 }
@@ -221,50 +218,46 @@ func (lff *LogFsFile) Readdir(count int) ([]os.FileInfo, error) {
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "readdir").Str("name", lff.Name()).Int("count", count).Msg("")
+	l.Str("c", "fs").Str("name", lff.Name()).Int("count", count).Msg("READ_DIR")
 	return info, err
 }
 
-// Readdirnames won't be logged
 func (lff *LogFsFile) Readdirnames(n int) ([]string, error) {
 	names, err := lff.src.Readdirnames(n)
 	l := log.Debug()
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "readdirnames").Str("name", lff.Name()).Int("count", n).Msg("")
+	l.Str("c", "fs").Str("name", lff.Name()).Int("count", n).Msg("READ_DIR_NAMES")
 	return names, err
 }
 
-// Stat won't be logged
 func (lff *LogFsFile) Stat() (os.FileInfo, error) {
 	info, err := lff.src.Stat()
 	l := log.Debug()
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "stat").Str("name", lff.Name()).Msg("")
+	l.Str("c", "fs").Str("name", lff.Name()).Msg("STAT")
 	return info, err
 }
 
-// Sync won't be logged
 func (lff *LogFsFile) Sync() error {
 	err := lff.src.Sync()
 	l := log.Debug()
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "sync").Str("name", lff.Name()).Msg("")
+	l.Str("c", "fs").Str("name", lff.Name()).Msg("SYNC")
 	return err
 }
 
-// Truncate won't be logged
 func (lff *LogFsFile) Truncate(size int64) error {
 	err := lff.src.Truncate(size)
 	l := log.Debug()
 	if err != nil {
 		l = log.Error().Err(err)
 	}
-	l.Str("c", "fs").Str("op", "truncate").Int64("size", size).Str("name", lff.Name()).Msg("")
+	l.Str("c", "fs").Int64("size", size).Str("name", lff.Name()).Msg("TRUNCATE")
 	return err
 }

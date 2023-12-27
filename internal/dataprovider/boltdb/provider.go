@@ -34,7 +34,7 @@ type Config struct {
 func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 	db, err := bbolt.Open(cfg.DbPath, 0666, nil)
 	if err != nil {
-		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to open db")
+		log.Fatal().Str("c", "boltdb").Err(err).Msg("failed to open db")
 	}
 	// Initialize the filesystem root
 	err = db.Update(func(tx *bbolt.Tx) error {
@@ -48,13 +48,13 @@ func New(driver *ddrv.Driver, cfg *Config) dp.DataProvider {
 		return tx.Bucket([]byte("fs")).Put([]byte(RootDirPath), rootData)
 	})
 	if err != nil {
-		log.Fatal().Str("c", "boltdb provider").Err(err).Msg("failed to init db")
+		log.Fatal().Str("c", "boltdb").Err(err).Msg("failed to init db")
 	}
 	sg, err := snowflake.NewNode(int64(rand.Intn(1023)))
 	if err != nil {
-		log.Fatal().Err(err).Str("c", "boltdb provider").Msg("failed to create snowflake node")
+		log.Fatal().Err(err).Str("c", "boltdb").Msg("failed to create snowflake node")
 	}
-	log.Info().Str("c", "boltdb provider").Msg("initialized boltdb as dataprovider")
+	log.Info().Str("c", "boltdb").Str("path", cfg.DbPath).Msg("initialized boltdb as dataprovider")
 
 	return &Provider{db, sg, driver, locker.New()}
 }
@@ -64,8 +64,8 @@ func (bfp *Provider) Name() string {
 }
 
 func (bfp *Provider) Get(id, parent string) (*dp.File, error) {
-	path := decodep(id)
-	file, err := bfp.Stat(path)
+	p := decodep(id)
+	file, err := bfp.Stat(p)
 	if err != nil {
 		return nil, err
 	}
@@ -97,15 +97,15 @@ func (bfp *Provider) Update(id, parent string, file *dp.File) (*dp.File, error) 
 }
 
 func (bfp *Provider) GetChild(id string) ([]*dp.File, error) {
-	path := decodep(id)
-	file, err := bfp.Stat(path)
+	p := decodep(id)
+	file, err := bfp.Stat(p)
 	if err != nil {
 		return nil, err
 	}
 	if !file.Dir {
 		return nil, dp.ErrInvalidParent
 	}
-	files, err := bfp.Ls(path, 0, 0)
+	files, err := bfp.Ls(p, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -132,18 +132,18 @@ func (bfp *Provider) Create(name, parent string, dir bool) (*dp.File, error) {
 }
 
 func (bfp *Provider) Delete(id, parent string) error {
-	path := decodep(id)
-	if path == RootDirPath {
+	p := decodep(id)
+	if p == RootDirPath {
 		return dp.ErrPermission
 	}
-	file, err := bfp.Stat(path)
+	file, err := bfp.Stat(p)
 	if err != nil {
 		return err
 	}
 	if parent != "" && string(file.Parent) != parent {
 		return dp.ErrInvalidParent
 	}
-	return bfp.Rm(path)
+	return bfp.Rm(p)
 }
 
 func (bfp *Provider) GetNodes(id string) ([]ddrv.Node, error) {
@@ -241,7 +241,6 @@ func (bfp *Provider) Stat(p string) (*dp.File, error) {
 
 func (bfp *Provider) Ls(p string, limit int, offset int) ([]*dp.File, error) {
 	p = path.Clean(p)
-	log.Debug().Str("cmd", "ls").Str("path", p).Int("limit", limit).Int("offset", offset).Msg("")
 	var files []*dp.File
 	err := bfp.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
@@ -271,7 +270,6 @@ func (bfp *Provider) Ls(p string, limit int, offset int) ([]*dp.File, error) {
 
 func (bfp *Provider) Touch(p string) error {
 	p = path.Clean(p)
-	log.Debug().Str("cmd", "touch").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		existingFile := b.Get([]byte(p))
@@ -286,7 +284,6 @@ func (bfp *Provider) Touch(p string) error {
 
 func (bfp *Provider) Mkdir(p string) error {
 	p = path.Clean(p)
-	log.Debug().Str("cmd", "mkdir").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		existingFile := b.Get([]byte(p))
@@ -301,7 +298,6 @@ func (bfp *Provider) Mkdir(p string) error {
 
 func (bfp *Provider) Rm(p string) error {
 	p = path.Clean(p)
-	log.Debug().Str("cmd", "rm").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		fs := tx.Bucket([]byte("fs"))
 		nodes := tx.Bucket([]byte("nodes"))
@@ -347,7 +343,6 @@ func (bfp *Provider) Rm(p string) error {
 func (bfp *Provider) Mv(oldPath, newPath string) error {
 	oldPath = path.Clean(oldPath)
 	newPath = path.Clean(newPath)
-	log.Debug().Str("cmd", "mv").Str("new", newPath).Str("old", oldPath).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		if exist := b.Get([]byte(newPath)); exist != nil {
@@ -417,7 +412,6 @@ func (bfp *Provider) RenameBucket(tx *bbolt.Tx, oldp, newp string) error {
 
 func (bfp *Provider) CHTime(p string, newMTime time.Time) error {
 	p = path.Clean(p)
-	log.Debug().Str("cmd", "chtimes").Str("path", p).Msg("")
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
 		fileData := b.Get([]byte(p))
