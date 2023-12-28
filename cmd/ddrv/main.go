@@ -22,11 +22,11 @@ import (
 // Config represents the entire configuration as defined in the YAML file.
 type Config struct {
 	Ddrv struct {
-		Tokens     []string `mapstructure:"token"`
-		TokenType  int      `mapstructure:"token_type"`
-		Channels   []string `mapstructure:"channels"`
-		AsyncWrite bool     `mapstructure:"async_write"`
-		ChunkSize  int      `mapstructure:"chunk_size"`
+		Tokens    []string `mapstructure:"token"`
+		TokenType int      `mapstructure:"token_type"`
+		Channels  []string `mapstructure:"channels"`
+		ChunkSize int      `mapstructure:"chunk_size"`
+		Nitro     bool     `mapstructure:"nitro"`
 	} `mapstructure:"ddrv"`
 
 	Dataprovider struct {
