@@ -113,6 +113,7 @@ func initConfig() {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
 
+	viper.AutomaticEnv()
 	err := viper.Unmarshal(&config)
 	if err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
