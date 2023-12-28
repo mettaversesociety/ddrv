@@ -1,6 +1,7 @@
+name: "ddrv"
+
 version: '3.8'
 
-name: "ddrv"
 services:
   postgres:
     container_name: ddrvpg
