@@ -1,9 +1,6 @@
 package ddrv
 
-// Stripped down version of https://github.com/diamondburned/arikawa/blob/v3/api/rate/rate.go
-// This limiter does not lock the bucket, so all calls will be concurrent
-// Rest must retry on error code 429 as well.
-
+// Simple version of https://github.com/diamondburned/arikawa/blob/v3/api/rate/rate.go
 import (
 	"net/http"
 	"strconv"
@@ -14,9 +11,9 @@ import (
 const ExtraDelay = 250 * time.Millisecond
 
 type Limiter struct {
-	bucketMu sync.Mutex
-	buckets  map[string]*bucket
-	global   time.Time
+	lock    sync.Mutex
+	global  time.Time
+	buckets map[string]*bucket
 }
 
 type bucket struct {
@@ -30,8 +27,8 @@ func NewLimiter() *Limiter {
 }
 
 func (l *Limiter) getBucket(path string, store bool) *bucket {
-	l.bucketMu.Lock()
-	defer l.bucketMu.Unlock()
+	l.lock.Lock()
+	defer l.lock.Unlock()
 
 	b, ok := l.buckets[path]
 	if !ok && store {
@@ -43,7 +40,6 @@ func (l *Limiter) getBucket(path string, store bool) *bucket {
 
 func (l *Limiter) Acquire(path string) {
 	now := time.Now()
-
 	// Check global rate limit
 	if l.global.After(now) {
 		time.Sleep(l.global.Sub(now) + ExtraDelay)
@@ -51,31 +47,32 @@ func (l *Limiter) Acquire(path string) {
 
 	b := l.getBucket(path, true)
 
+	// Lock bucket until released
+	b.lock.Lock()
 	// Check bucket-specific rate limit
 	if b.remaining == 0 && b.reset.After(now) {
 		time.Sleep(b.reset.Sub(now) + ExtraDelay)
 	}
 
 	if b.remaining > 0 {
-		b.lock.Lock()
 		b.remaining--
-		b.lock.Unlock()
 	}
 }
 
 func (l *Limiter) Release(path string, headers http.Header) {
 	b := l.getBucket(path, false)
-
 	// Continue if no specific bucket was found
 	if b == nil {
 		return
 	}
-	b.lock.Lock()
+	// Release bucket for next request
 	defer b.lock.Unlock()
+	// Request failed due to network error
+	if headers == nil {
+		return
+	}
 	var (
-		// boolean
-		global = headers.Get("X-RateLimit-Global")
-		// seconds
+		global     = headers.Get("X-RateLimit-Global") // boolean
 		remaining  = headers.Get("X-RateLimit-Remaining")
 		reset      = headers.Get("X-RateLimit-Reset") // float
 		retryAfter = headers.Get("Retry-After")
@@ -102,10 +99,8 @@ func (l *Limiter) Release(path string, headers http.Header) {
 		if err != nil {
 			return
 		}
-
 		sec := int64(unix)
 		nsec := int64((unix - float64(sec)) * float64(time.Second))
-
 		b.reset = time.Unix(sec, nsec).Add(ExtraDelay)
 	}
 
@@ -114,7 +109,6 @@ func (l *Limiter) Release(path string, headers http.Header) {
 		if err != nil {
 			return
 		}
-
 		b.remaining = u
 	}
 
