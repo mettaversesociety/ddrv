@@ -113,7 +113,28 @@ func initConfig() {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
 
-	viper.AutomaticEnv()
+	// Bind env
+	_ = viper.BindEnv("ddrv.token", "TOKEN")
+	_ = viper.BindEnv("ddrv.token_type", "TOKEN_TYPE")
+	_ = viper.BindEnv("ddrv.channels", "CHANNELS")
+	_ = viper.BindEnv("ddrv.nitro", "NITRO")
+
+	_ = viper.BindEnv("dataprovider.boltdb.db_path", "BOLTDB_DB_PATH")
+	_ = viper.BindEnv("dataprovider.postgres.db_url", "POSTGRES_DB_URL")
+
+	_ = viper.BindEnv("frontend.ftp.addr", "FTP_ADDR")
+	_ = viper.BindEnv("frontend.ftp.username", "FTP_USERNAME")
+	_ = viper.BindEnv("frontend.ftp.password", "FTP_PASSWORD")
+	_ = viper.BindEnv("frontend.ftp.async_write", "FTP_ASYNC_WRITE")
+	_ = viper.BindEnv("frontend.http.addr", "HTTP_ADDR")
+	_ = viper.BindEnv("frontend.http.username", "HTTP_USERNAME")
+	_ = viper.BindEnv("frontend.http.password", "HTTP_PASSWORD")
+	_ = viper.BindEnv("frontend.http.guest_mode", "HTTP_GUEST_MODE")
+	_ = viper.BindEnv("frontend.http.async_write", "HTTP_ASYNC_WRITE")
+	_ = viper.BindEnv("frontend.http.https_addr", "HTTPS_ADDR")
+	_ = viper.BindEnv("frontend.http.https_crtpath", "HTTPS_CRTPATH")
+	_ = viper.BindEnv("frontend.http.https_keypath", "HTTPS_KEYPATH")
+
 	err := viper.Unmarshal(&config)
 	if err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")
