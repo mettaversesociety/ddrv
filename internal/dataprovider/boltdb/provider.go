@@ -284,15 +284,21 @@ func (bfp *Provider) Touch(p string) error {
 
 func (bfp *Provider) Mkdir(p string) error {
 	p = path.Clean(p)
+
 	return bfp.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte("fs"))
-		existingFile := b.Get([]byte(p))
-		// Check if the directory already exists
-		if existingFile != nil {
-			return dp.ErrExist
+		// Iterate through parent directories and create them if they don't exist.
+		for dir := p; dir != "." && dir != "/"; dir = filepath.Dir(dir) {
+			exciting := b.Get([]byte(dir))
+			if exciting == nil {
+				// Directory does not exist, create it.
+				data := serializeFile(dp.File{Name: dir, Dir: true, MTime: time.Now()})
+				if err := b.Put([]byte(dir), data); err != nil {
+					return err
+				}
+			}
 		}
-		data := serializeFile(dp.File{Name: p, Dir: true, MTime: time.Now()})
-		return b.Put([]byte(p), data)
+		return nil
 	})
 }
 
