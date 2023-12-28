@@ -56,7 +56,7 @@ func main() {
 	log.Info().Msg("cleaned up urls on table node")
 
 	// Prepare ddrv driver
-	cfg := ddrv.Config{Token: *tokens, Channels: "1"}
+	cfg := ddrv.Config{Tokens: []string{*tokens}, Channels: []string{"1"}}
 	if *tokenType == "user" {
 		cfg.TokenType = 1
 	}

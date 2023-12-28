@@ -95,7 +95,9 @@ func main() {
 	// Create and start http server
 	go func() { errCh <- http.Serv(driver, &config.Frontend.HTTP) }()
 
-	log.Fatal().Msgf("ddrv: error %v", <-errCh)
+	if err = <-errCh; err != nil {
+		log.Fatal().Str("c", "main").Err(err).Msgf("ddrv crashed")
+	}
 }
 
 func initConfig() {
