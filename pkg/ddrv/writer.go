@@ -101,6 +101,9 @@ func (w *Writer) next() {
 		go func() {
 			chunk, err := w.rest.CreateAttachment(reader)
 			if err != nil {
+				// Read everything from reader,
+				// so w.pwriter.Write can be unblocked
+				_, _ = io.Copy(io.Discard, reader)
 				w.errCh <- err
 			} else {
 				w.idx = 0

@@ -22,11 +22,11 @@ import (
 // Config represents the entire configuration as defined in the YAML file.
 type Config struct {
 	Ddrv struct {
-		Tokens     []string `mapstructure:"token"`
-		TokenType  int      `mapstructure:"token_type"`
-		Channels   []string `mapstructure:"channels"`
-		AsyncWrite bool     `mapstructure:"async_write"`
-		ChunkSize  int      `mapstructure:"chunk_size"`
+		Tokens    []string `mapstructure:"token"`
+		TokenType int      `mapstructure:"token_type"`
+		Channels  []string `mapstructure:"channels"`
+		ChunkSize int      `mapstructure:"chunk_size"`
+		Nitro     bool     `mapstructure:"nitro"`
 	} `mapstructure:"ddrv"`
 
 	Dataprovider struct {
@@ -113,6 +113,7 @@ func initConfig() {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to read config")
 	}
 
+	viper.AutomaticEnv()
 	err := viper.Unmarshal(&config)
 	if err != nil {
 		log.Fatal().Str("c", "config").Err(err).Msg("failed to decode config into struct")

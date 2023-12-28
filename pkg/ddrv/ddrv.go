@@ -13,11 +13,11 @@ type Driver struct {
 }
 
 type Config struct {
-	Tokens     []string
-	TokenType  int
-	Channels   []string
-	AsyncWrite bool
-	ChunkSize  int
+	Tokens    []string
+	TokenType int
+	Channels  []string
+	ChunkSize int
+	Nitro     bool
 }
 
 func New(cfg *Config) (*Driver, error) {
@@ -29,16 +29,17 @@ func New(cfg *Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	nitro := false
-	if chunkSize > 100*1024*1024 && cfg.TokenType == TokenUserNitro {
-		nitro = true
+	// Cloudflare does not support request payload larger than 100MB,
+	// so discord uses different upload method for uploading payload
+	if chunkSize > 100*1024*1024 {
+		cfg.Nitro = true
 	}
 	for i, token := range cfg.Tokens {
 		if cfg.TokenType == TokenBot {
 			cfg.Tokens[i] = "Bot " + token
 		}
 	}
-	return &Driver{NewRest(cfg.Tokens, cfg.Channels, nitro), chunkSize}, nil
+	return &Driver{NewRest(cfg.Tokens, cfg.Channels, chunkSize, cfg.Nitro), chunkSize}, nil
 }
 
 // NewWriter creates a new ddrv.Writer instance that implements an io.WriterCloser.
@@ -91,7 +92,7 @@ func (d *Driver) UpdateNodes(chunks []*Node) error {
 // It returns an adjusted chunkSize and an error if the provided chunkSize is invalid.
 func parseChunkSize(chunkSize, tokenType int) (int, error) {
 	// Check if provided token is valid
-	if tokenType > TokenUserNitroBasic {
+	if tokenType > TokenUserNitroBasic || tokenType < 0 {
 		return 0, fmt.Errorf("invalid token type %d", tokenType)
 	}
 	// If the tokenType is either TokenBot or TokenUser and if chunkSize is greater than 25MB, adjust chunkSize to 25MB.
