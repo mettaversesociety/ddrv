@@ -77,6 +77,48 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION stat IS 'This function returns the metadata of the file or directory specified by the given file path.';
 `
 
+var statFunctionV2 = `
+CREATE OR REPLACE FUNCTION stat(filepath TEXT)
+    RETURNS TABLE
+            (
+                ID     UUID,
+                NAME   TEXT,
+                DIR    BOOL,
+                SIZE   BIGINT,
+                ATIME  TIMESTAMP,
+                MTIME  TIMESTAMP,
+                PARENT UUID
+            )
+AS
+$$
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, TRUE, 'stat');
+
+    RETURN QUERY
+        WITH RECURSIVE vfs
+                           AS
+                           (SELECT *, fs.name::TEXT AS path
+                            FROM fs
+                            WHERE fs.parent IS NULL
+                            UNION ALL
+                            SELECT f.*, p.path || '/' || f.name AS path
+                            FROM fs f
+                                     JOIN vfs p ON f.parent = p.id)
+        SELECT vfs.id,
+               parseroot(vfs.path)       AS name,
+               vfs.dir,
+               vfs.size,
+               vfs.atime,
+               vfs.mtime,
+               vfs.parent
+        FROM vfs
+        WHERE parseroot(vfs.path) = filepath;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION stat IS 'This function returns the metadata of the file or directory specified by the given file path.';
+`
+
 var lsFunction = `
 CREATE OR REPLACE FUNCTION ls(filepath TEXT)
     RETURNS TABLE
@@ -134,6 +176,66 @@ BEGIN
                  LEFT JOIN node ON node.file = vfs.id
         WHERE vfs.path != filepath
         GROUP BY 1, 2, 3, 5, 6, 7;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION ls IS 'The ls function lists the contents of a directory specified by the file path.';
+`
+
+var lsFunctionV2 = `
+CREATE OR REPLACE FUNCTION ls(filepath TEXT)
+    RETURNS TABLE
+            (
+                ID     UUID,
+                NAME   TEXT,
+                DIR    BOOL,
+                SIZE   BIGINT,
+                ATIME  TIMESTAMP,
+                MTIME  TIMESTAMP,
+                PARENT UUID
+            )
+AS
+$$
+DECLARE
+    _id  UUID;
+    _dir BOOL;
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, TRUE, 'ls');
+
+    SELECT s.id, s.dir
+    FROM stat(filepath) AS s
+    INTO _id, _dir;
+
+    IF _id IS NULL THEN
+        RAISE EXCEPTION 'ls % no such file or directory', filepath USING ERRCODE = 'P0002';
+    END IF;
+
+    IF _dir = FALSE THEN
+        RAISE EXCEPTION 'ls % not a directory', filepath USING ERRCODE = 'P0004';
+    END IF;
+
+    IF filepath = '/' THEN
+        filepath = '';
+    END IF;
+    RETURN QUERY
+        WITH RECURSIVE vfs
+                           AS
+                           (SELECT *, filepath AS path
+                            FROM fs
+                            WHERE fs.id = _id
+                            UNION ALL
+                            SELECT f.*, p.path || '/' || f.name AS path
+                            FROM fs f
+                                     JOIN vfs p ON f.parent = p.id AND p.id = _id)
+        SELECT vfs.id,
+               parseroot(vfs.path)       AS name,
+               vfs.dir,
+               vfs.size,
+               vfs.atime,
+               vfs.mtime,
+               vfs.parent
+        FROM vfs
+        WHERE vfs.path != filepath;
 END;
 $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION ls IS 'The ls function lists the contents of a directory specified by the file path.';

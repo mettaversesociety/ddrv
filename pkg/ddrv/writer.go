@@ -1,8 +1,6 @@
 package ddrv
 
-import (
-	"io"
-)
+import "io"
 
 // Writer implements io.WriteCloser.
 // It streams data in chunks to Discord server channels using webhook

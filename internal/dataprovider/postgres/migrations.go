@@ -123,4 +123,22 @@ var migrations = []migrate.Migration{
 			$$ LANGUAGE plpgsql;
 			`}),
 	},
+	{
+		ID: 8,
+		Up: migrate.Queries([]string{
+			`ALTER TABLE fs ADD COLUMN size bigint DEFAULT 0 NOT NULL;`,
+			`UPDATE fs SET size = COALESCE((SELECT SUM(node.size)FROM node WHERE node.file = fs.id), 0);`,
+			statFunctionV2,
+			lsFunctionV2,
+			`DROP FUNCTION IF EXISTS tree(TEXT);`,
+			`DROP FUNCTION IF EXISTS parsesize(size BIGINT);`,
+		}),
+		Down: migrate.Queries([]string{
+			`ALTER TABLE fs DROP COLUMN size;`,
+			statFunction,
+			lsFunction,
+			treeFunction,
+			parseSizeFunction,
+		}),
+	},
 }
