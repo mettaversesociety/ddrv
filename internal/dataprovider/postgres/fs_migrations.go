@@ -77,48 +77,6 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION stat IS 'This function returns the metadata of the file or directory specified by the given file path.';
 `
 
-var statFunctionV2 = `
-CREATE OR REPLACE FUNCTION stat(filepath TEXT)
-    RETURNS TABLE
-            (
-                ID     UUID,
-                NAME   TEXT,
-                DIR    BOOL,
-                SIZE   BIGINT,
-                ATIME  TIMESTAMP,
-                MTIME  TIMESTAMP,
-                PARENT UUID
-            )
-AS
-$$
-BEGIN
-    --- sanitize inputs
-    filepath = sanitizefpath(filepath, TRUE, 'stat');
-
-    RETURN QUERY
-        WITH RECURSIVE vfs
-                           AS
-                           (SELECT *, fs.name::TEXT AS path
-                            FROM fs
-                            WHERE fs.parent IS NULL
-                            UNION ALL
-                            SELECT f.*, p.path || '/' || f.name AS path
-                            FROM fs f
-                                     JOIN vfs p ON f.parent = p.id)
-        SELECT vfs.id,
-               parseroot(vfs.path)       AS name,
-               vfs.dir,
-               vfs.size,
-               vfs.atime,
-               vfs.mtime,
-               vfs.parent
-        FROM vfs
-        WHERE parseroot(vfs.path) = filepath;
-END;
-$$ LANGUAGE plpgsql;
-COMMENT ON FUNCTION stat IS 'This function returns the metadata of the file or directory specified by the given file path.';
-`
-
 var lsFunction = `
 CREATE OR REPLACE FUNCTION ls(filepath TEXT)
     RETURNS TABLE
@@ -176,66 +134,6 @@ BEGIN
                  LEFT JOIN node ON node.file = vfs.id
         WHERE vfs.path != filepath
         GROUP BY 1, 2, 3, 5, 6, 7;
-END;
-$$ LANGUAGE plpgsql;
-COMMENT ON FUNCTION ls IS 'The ls function lists the contents of a directory specified by the file path.';
-`
-
-var lsFunctionV2 = `
-CREATE OR REPLACE FUNCTION ls(filepath TEXT)
-    RETURNS TABLE
-            (
-                ID     UUID,
-                NAME   TEXT,
-                DIR    BOOL,
-                SIZE   BIGINT,
-                ATIME  TIMESTAMP,
-                MTIME  TIMESTAMP,
-                PARENT UUID
-            )
-AS
-$$
-DECLARE
-    _id  UUID;
-    _dir BOOL;
-BEGIN
-    --- sanitize inputs
-    filepath = sanitizefpath(filepath, TRUE, 'ls');
-
-    SELECT s.id, s.dir
-    FROM stat(filepath) AS s
-    INTO _id, _dir;
-
-    IF _id IS NULL THEN
-        RAISE EXCEPTION 'ls % no such file or directory', filepath USING ERRCODE = 'P0002';
-    END IF;
-
-    IF _dir = FALSE THEN
-        RAISE EXCEPTION 'ls % not a directory', filepath USING ERRCODE = 'P0004';
-    END IF;
-
-    IF filepath = '/' THEN
-        filepath = '';
-    END IF;
-    RETURN QUERY
-        WITH RECURSIVE vfs
-                           AS
-                           (SELECT *, filepath AS path
-                            FROM fs
-                            WHERE fs.id = _id
-                            UNION ALL
-                            SELECT f.*, p.path || '/' || f.name AS path
-                            FROM fs f
-                                     JOIN vfs p ON f.parent = p.id AND p.id = _id)
-        SELECT vfs.id,
-               parseroot(vfs.path)       AS name,
-               vfs.dir,
-               vfs.size,
-               vfs.atime,
-               vfs.mtime,
-               vfs.parent
-        FROM vfs
-        WHERE vfs.path != filepath;
 END;
 $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION ls IS 'The ls function lists the contents of a directory specified by the file path.';
@@ -620,4 +518,279 @@ DROP INDEX IF EXISTS idx_fs_name;
 -- Dropping the table
 DROP TABLE IF EXISTS node;
 DROP TABLE IF EXISTS fs CASCADE;
+`
+
+var refreshVFSFunction = `
+CREATE OR REPLACE FUNCTION refresh_vfs()
+    RETURNS void
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    view_exists boolean;
+BEGIN
+    -- Check if the materialized view exists
+    SELECT EXISTS (SELECT
+                   FROM pg_catalog.pg_class c
+                            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                   WHERE n.nspname = 'public' -- or your schema name
+                     AND c.relname = 'vfs'
+                     AND c.relkind = 'm' -- 'm' stands for materialized view
+    )
+    INTO view_exists;
+
+    IF view_exists THEN
+        -- Refresh the materialized view
+        REFRESH MATERIALIZED VIEW vfs;
+    ELSE
+        -- Create the materialized view
+        CREATE MATERIALIZED VIEW vfs AS
+        WITH RECURSIVE vfs AS (SELECT *, fs.name::TEXT AS path
+                               FROM fs
+                               WHERE fs.parent IS NULL
+                               UNION ALL
+                               SELECT f.*, p.path || '/' || f.name AS path
+                               FROM fs f
+                                        JOIN vfs p ON f.parent = p.id)
+        SELECT fs.id,
+               parseroot(fs.name) as name,
+               fs.dir,
+               fs.size,
+               fs.atime,
+               fs.mtime,
+               fs.parent,
+               parseroot(fs.path) as path
+        FROM vfs fs;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_path ON vfs (path);
+    END IF;
+END;
+$$;
+`
+
+var statFunctionV2 = `
+CREATE OR REPLACE FUNCTION stat(filepath TEXT)
+    RETURNS TABLE
+            (
+                ID     UUID,
+                NAME   TEXT,
+                DIR    BOOL,
+                SIZE   BIGINT,
+                ATIME  TIMESTAMP,
+                MTIME  TIMESTAMP,
+                PARENT UUID
+            )
+AS
+$$
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, TRUE, 'stat');
+
+    RETURN QUERY
+        SELECT vfs.id, vfs.name, vfs.dir, vfs.size, vfs.atime, vfs.mtime, vfs.parent
+        FROM vfs
+        WHERE vfs.name = filepath;
+END;
+$$ LANGUAGE plpgsql;
+`
+
+var lsFunctionV2 = `
+CREATE OR REPLACE FUNCTION ls(filepath TEXT)
+    RETURNS TABLE
+            (
+                ID     UUID,
+                NAME   TEXT,
+                DIR    BOOL,
+                SIZE   BIGINT,
+                ATIME  TIMESTAMP,
+                MTIME  TIMESTAMP,
+                PARENT UUID
+            )
+AS
+$$
+DECLARE
+    _id  UUID;
+    _dir BOOL;
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, TRUE, 'ls');
+
+    SELECT s.id, s.dir
+    FROM stat(filepath) AS s
+    INTO _id, _dir;
+
+    IF _id IS NULL THEN
+        RAISE EXCEPTION 'ls % no such file or directory', filepath USING ERRCODE = 'P0002';
+    END IF;
+
+    IF _dir = FALSE THEN
+        RAISE EXCEPTION 'ls % not a directory', filepath USING ERRCODE = 'P0004';
+    END IF;
+
+    RETURN QUERY
+        SELECT vfs.id, vfs.name, vfs.dir, vfs.size, vfs.atime, vfs.mtime, vfs.parent
+        FROM vfs
+        WHERE vfs.name != filepath AND vfs.parent=_id;
+END;
+$$ LANGUAGE plpgsql;
+`
+
+var touchFunctionV2 = `
+CREATE OR REPLACE FUNCTION touch(filepath TEXT)
+    RETURNS VOID
+AS
+$$
+DECLARE
+    _id     UUID;
+    _eid    UUID;
+    _dir    BOOL;
+    fname   TEXT;
+    dirpath TEXT;
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, TRUE, 'touch');
+    dirpath := dirname(filepath);
+    fname := basename(filepath);
+    PERFORM validfname(fname::TEXT);
+
+    SELECT s.id, s.dir
+    FROM stat(dirpath) AS s
+    INTO _id, _dir;
+
+    IF _id IS NULL THEN
+        RAISE EXCEPTION 'touch % no such file or directory', dirpath USING ERRCODE = 'P0002';
+    END IF;
+    IF _dir = FALSE THEN
+        RAISE EXCEPTION 'touch % not a directory', dirpath USING ERRCODE = 'P0004';
+    END IF;
+
+    SELECT ID FROM fs WHERE parent = _id AND name = fname INTO _eid;
+    IF _eid IS NULL THEN
+        INSERT INTO fs (name, dir, parent) VALUES (fname, FALSE, _id);
+    END IF;
+
+    EXECUTE refresh_vfs();
+END;
+$$ LANGUAGE plpgsql;
+`
+
+var mkdirFunctionV2 = `
+CREATE OR REPLACE FUNCTION mkdir(filepath TEXT)
+    RETURNS VOID
+AS
+$$
+DECLARE
+    _id        UUID;
+    _parent_id UUID;
+    _path      TEXT[] := STRING_TO_ARRAY(sanitizefpath(filepath, FALSE, 'mkdir'), '/');
+    _name      TEXT;
+    _dir       BOOL;
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, FALSE, 'mkdir');
+
+    -- Iterates over each part of the path
+    FOR i IN 1..ARRAY_LENGTH(_path, 1)
+        LOOP
+            _name := _path[i];
+
+            -- Tries to find the current part of the path in the parent directory
+            SELECT id, dir
+            INTO _id, _dir
+            FROM fs
+            WHERE name = _name
+              AND (i = 1 OR parent = _parent_id);
+
+            IF _dir = FALSE THEN
+                RAISE EXCEPTION 'mkdir % no such file or directory', filepath USING ERRCODE = 'P0002';
+            END IF;
+            -- If the directory doesn't exist, create it
+            IF _id IS NULL THEN
+                INSERT INTO fs (name, dir, parent) VALUES (_name, TRUE, _parent_id) RETURNING id INTO _id;
+            END IF;
+
+            -- Sets the current directory as the parent for the next loop
+            _parent_id := _id;
+        END LOOP;
+
+    EXECUTE refresh_vfs();
+END;
+$$ LANGUAGE plpgsql;
+`
+
+var mvFunctionV2 = `
+CREATE OR REPLACE FUNCTION mv(oldpath TEXT, newpath TEXT)
+    RETURNS VOID
+AS
+$$
+DECLARE
+    _old_id          UUID;
+    _new_parent_id   UUID;
+    _new_name        TEXT;
+    _new_path        TEXT[] := STRING_TO_ARRAY(sanitizefpath(newpath, FALSE, 'mv'), '/');
+    _new_parent_path TEXT;
+BEGIN
+    --- sanitize inputs
+    oldpath = sanitizefpath(oldpath, FALSE, 'mv');
+    newpath = sanitizefpath(newpath, FALSE, 'mv');
+
+    -- If old path doesn't exist, raise an error
+    SELECT s.id
+    FROM stat(oldpath) AS s
+    INTO _old_id;
+
+    IF _old_id IS NULL THEN
+        RAISE EXCEPTION 'mv % no such file or directory', oldpath USING ERRCODE = 'P0002';
+    END IF;
+
+    -- Split newpath into parent path and name
+    _new_name := _new_path[ARRAY_LENGTH(_new_path, 1)];
+
+    -- Construct the parent path manually
+    _new_parent_path := '';
+    FOR i IN 1..(ARRAY_LENGTH(_new_path, 1) - 1)
+        LOOP
+            _new_parent_path := _new_parent_path || '/' || _new_path[i];
+        END LOOP;
+
+    -- If new parent path doesn't exist, raise an error
+    SELECT s.id
+    FROM stat(_new_parent_path) AS s
+    INTO _new_parent_id;
+
+    IF _new_parent_id IS NULL THEN
+        RAISE EXCEPTION 'mv % no such file or directory', newpath USING ERRCODE = 'P0002';
+    END IF;
+
+    -- Update the parent id and name of the old path
+    UPDATE fs SET parent = _new_parent_id, name = _new_name WHERE id = _old_id;
+
+    EXECUTE refresh_vfs();
+END;
+$$ LANGUAGE plpgsql;
+`
+
+var rmFunctionV2 = `
+CREATE OR REPLACE FUNCTION rm(filepath TEXT)
+    RETURNS VOID
+AS
+$$
+DECLARE
+    _id UUID;
+BEGIN
+    --- sanitize inputs
+    filepath = sanitizefpath(filepath, FALSE, 'rm');
+
+    SELECT s.id
+    FROM stat(filepath) AS s
+    INTO _id;
+
+    IF _id IS NULL THEN
+        RAISE EXCEPTION 'rm % no such file or directory',filepath USING ERRCODE = 'P0002';
+    END IF;
+
+    DELETE FROM fs WHERE id = _id;
+
+    EXECUTE refresh_vfs();
+END;
+$$ LANGUAGE plpgsql;
 `
