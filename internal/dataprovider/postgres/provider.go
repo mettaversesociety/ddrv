@@ -238,8 +238,7 @@ func (pgp *PGProvider) CreateNodes(fid string, nodes []ddrv.Node) error {
 	// Update mtime every time something is written on file
 	if _, err = tx.Exec(`
 						UPDATE fs 
-						SET size = COALESCE((SELECT SUM(size) FROM nodes WHERE nodes.file_id = fs.id), 0), 
-						    mtime = NOW() 
+						SET size = COALESCE((SELECT SUM(size) FROM node WHERE node.file = fs.id), 0), mtime = NOW() 
 						WHERE id = $1;
 						`, fid); err != nil {
 		return err

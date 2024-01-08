@@ -553,15 +553,15 @@ BEGIN
                                FROM fs f
                                         JOIN vfs p ON f.parent = p.id)
         SELECT fs.id,
-               parseroot(fs.name) as name,
+               parseroot(fs.path) as name,
                fs.dir,
                fs.size,
                fs.atime,
                fs.mtime,
-               fs.parent,
-               parseroot(fs.path) as path
+               fs.parent
         FROM vfs fs;
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_path ON vfs (path);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_name ON vfs (name);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_vfs_name_parent ON vfs (name, parent);
     END IF;
 END;
 $$;
