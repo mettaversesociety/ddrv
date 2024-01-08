@@ -316,8 +316,10 @@ func (pgp *PGProvider) Mv(name, newname string) error {
 }
 
 func (pgp *PGProvider) CHTime(name string, mtime time.Time) error {
-	_, err := pgp.db.Exec("UPDATE fs SET mtime = $1 WHERE id=(SELECT id FROM stat($2));", mtime, name)
-	return pqErrToOs(err)
+	if _, err := pgp.db.Exec("UPDATE fs SET mtime = $1 WHERE id=(SELECT id FROM stat($2));", mtime, name); err != nil {
+		return pqErrToOs(err)
+	}
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) refresh() error {
