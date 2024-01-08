@@ -119,7 +119,7 @@ func (pgp *PGProvider) Create(name, parent string, dir bool) (*dp.File, error) {
 		Scan(&file.Id, &file.Dir, &file.MTime); err != nil {
 		return nil, pqErrToOs(err) // Handle already exists
 	}
-	return file, nil
+	return file, pgp.refresh()
 }
 
 func (pgp *PGProvider) Update(id, parent string, file *dp.File) (*dp.File, error) {
@@ -144,7 +144,7 @@ func (pgp *PGProvider) Update(id, parent string, file *dp.File) (*dp.File, error
 		}
 		return nil, pqErrToOs(err) // Handle already exists
 	}
-	return file, nil
+	return file, pgp.refresh()
 }
 
 func (pgp *PGProvider) Delete(id, parent string) error {
@@ -166,7 +166,7 @@ func (pgp *PGProvider) Delete(id, parent string) error {
 	if rAffected == 0 {
 		return dp.ErrNotExist
 	}
-	return nil
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) GetNodes(id string) ([]ddrv.Node, error) {
@@ -248,12 +248,14 @@ func (pgp *PGProvider) CreateNodes(fid string, nodes []ddrv.Node) error {
 		return err
 	}
 
-	return nil
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) Truncate(fid string) error {
-	_, err := pgp.db.Exec("DELETE FROM node WHERE file=$1", fid)
-	return err
+	if _, err := pgp.db.Exec("DELETE FROM node WHERE file=$1", fid); err != nil {
+		return err
+	}
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) Stat(name string) (*dp.File, error) {
@@ -316,6 +318,11 @@ func (pgp *PGProvider) Mv(name, newname string) error {
 func (pgp *PGProvider) CHTime(name string, mtime time.Time) error {
 	_, err := pgp.db.Exec("UPDATE fs SET mtime = $1 WHERE id=(SELECT id FROM stat($2));", mtime, name)
 	return pqErrToOs(err)
+}
+
+func (pgp *PGProvider) refresh() error {
+	_, err := pgp.db.Exec("SELECT * FROM refresh_vfs();")
+	return err
 }
 
 // Handle custom PGFs code
