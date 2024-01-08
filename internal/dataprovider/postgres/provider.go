@@ -54,21 +54,15 @@ func (pgp *PGProvider) Get(id, parent string) (*dp.File, error) {
 	}
 	if parent != "" {
 		err = pgp.db.QueryRow(`
-			SELECT fs.id, fs.name, dir, parsesize(SUM(node.size)) AS size, fs.parent, fs.mtime
+			SELECT id, name, dir, size, parent, mtime
 			FROM fs
-			LEFT JOIN node ON fs.id = node.file
-			WHERE fs.id=$1 AND parent=$2
-			GROUP BY 1, 2, 3, 5, 6
-			ORDER BY fs.dir DESC, fs.name;
+			WHERE fs.id=$1 AND parent=$2;
 		`, id, parent).Scan(&file.Id, &file.Name, &file.Dir, &file.Size, &file.Parent, &file.MTime)
 	} else {
 		err = pgp.db.QueryRow(`
-			SELECT fs.id, fs.name, dir, parsesize(SUM(node.size)) AS size, fs.parent, fs.mtime
+			SELECT id, name, dir, size, parent, mtime
 			FROM fs
-			LEFT JOIN node ON fs.id = node.file
-			WHERE fs.id=$1
-			GROUP BY 1, 2, 3, 5, 6
-			ORDER BY fs.dir DESC, fs.name;
+			WHERE fs.id=$1;
 		`, id).Scan(&file.Id, &file.Name, &file.Dir, &file.Size, &file.Parent, &file.MTime)
 	}
 
@@ -92,11 +86,9 @@ func (pgp *PGProvider) GetChild(id string) ([]*dp.File, error) {
 	}
 	files := make([]*dp.File, 0)
 	rows, err := pgp.db.Query(`
-				SELECT fs.id, fs.name, fs.dir, parsesize(SUM(node.size)) AS size, fs.parent, fs.mtime
+				SELECT id, name, dir, size, parent, mtime
 				FROM fs
-						 LEFT JOIN node ON fs.id = node.file
 				WHERE fs.parent = $1
-				GROUP BY 1, 2, 3, 5, 6
 				ORDER BY fs.dir DESC, fs.name;
 			`, id)
 	if err != nil {
@@ -127,7 +119,7 @@ func (pgp *PGProvider) Create(name, parent string, dir bool) (*dp.File, error) {
 		Scan(&file.Id, &file.Dir, &file.MTime); err != nil {
 		return nil, pqErrToOs(err) // Handle already exists
 	}
-	return file, nil
+	return file, pgp.refresh()
 }
 
 func (pgp *PGProvider) Update(id, parent string, file *dp.File) (*dp.File, error) {
@@ -152,7 +144,7 @@ func (pgp *PGProvider) Update(id, parent string, file *dp.File) (*dp.File, error
 		}
 		return nil, pqErrToOs(err) // Handle already exists
 	}
-	return file, nil
+	return file, pgp.refresh()
 }
 
 func (pgp *PGProvider) Delete(id, parent string) error {
@@ -174,7 +166,7 @@ func (pgp *PGProvider) Delete(id, parent string) error {
 	if rAffected == 0 {
 		return dp.ErrNotExist
 	}
-	return nil
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) GetNodes(id string) ([]ddrv.Node, error) {
@@ -244,7 +236,11 @@ func (pgp *PGProvider) CreateNodes(fid string, nodes []ddrv.Node) error {
 	}
 
 	// Update mtime every time something is written on file
-	if _, err = tx.Exec("UPDATE fs SET mtime = NOW() WHERE id=$1", fid); err != nil {
+	if _, err = tx.Exec(`
+						UPDATE fs 
+						SET size = COALESCE((SELECT SUM(size) FROM node WHERE node.file = fs.id), 0), mtime = NOW() 
+						WHERE id = $1;
+						`, fid); err != nil {
 		return err
 	}
 	// If everything went well, commit the transaction
@@ -252,12 +248,14 @@ func (pgp *PGProvider) CreateNodes(fid string, nodes []ddrv.Node) error {
 		return err
 	}
 
-	return nil
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) Truncate(fid string) error {
-	_, err := pgp.db.Exec("DELETE FROM node WHERE file=$1", fid)
-	return err
+	if _, err := pgp.db.Exec("DELETE FROM node WHERE file=$1", fid); err != nil {
+		return err
+	}
+	return pgp.refresh()
 }
 
 func (pgp *PGProvider) Stat(name string) (*dp.File, error) {
@@ -318,8 +316,15 @@ func (pgp *PGProvider) Mv(name, newname string) error {
 }
 
 func (pgp *PGProvider) CHTime(name string, mtime time.Time) error {
-	_, err := pgp.db.Exec("UPDATE fs SET mtime = $1 WHERE id=(SELECT id FROM stat($2));", mtime, name)
-	return pqErrToOs(err)
+	if _, err := pgp.db.Exec("UPDATE fs SET mtime = $1 WHERE id=(SELECT id FROM stat($2));", mtime, name); err != nil {
+		return pqErrToOs(err)
+	}
+	return pgp.refresh()
+}
+
+func (pgp *PGProvider) refresh() error {
+	_, err := pgp.db.Exec("SELECT * FROM refresh_vfs();")
+	return err
 }
 
 // Handle custom PGFs code
