@@ -1,8 +1,6 @@
 package postgres
 
-import (
-	"github.com/forscht/ddrv/pkg/migrate"
-)
+import "github.com/forscht/ddrv/pkg/migrate"
 
 var migrations = []migrate.Migration{
 	{
@@ -149,6 +147,7 @@ var migrations = []migrate.Migration{
 			rmFunction,
 			treeFunction,
 			parseSizeFunction,
+			`DROP FUNCTION IF EXIST refresh_vfs();`,
 		}),
 	},
 }
