@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const MaxChunkSize = 25 * 1024 * 1024
+const MaxChunkSizeNitro = 500 * 1024 * 1024
+const MaxChunkSizeNitroBasic = 50 * 1024 * 1024
+
 type Driver struct {
 	Rest      *Rest
 	ChunkSize int
@@ -96,16 +100,16 @@ func parseChunkSize(chunkSize, tokenType int) (int, error) {
 		return 0, fmt.Errorf("invalid token type %d", tokenType)
 	}
 	// If the tokenType is either TokenBot or TokenUser and if chunkSize is greater than 25MB, adjust chunkSize to 25MB.
-	if (tokenType == TokenBot || tokenType == TokenUser) && (chunkSize > 25*1024*1024 || chunkSize <= 0) {
-		chunkSize = 25 * 1024 * 1024
+	if (tokenType == TokenBot || tokenType == TokenUser) && (chunkSize > MaxChunkSize || chunkSize <= 0) {
+		chunkSize = MaxChunkSize
 	}
 	// If the tokenType is TokenUserNitroBasic and chunkSize is greater than 50MB, adjust chunkSize to 50MB.
-	if tokenType == TokenUserNitroBasic && (chunkSize > 50*1024*1024 || chunkSize <= 0) {
-		chunkSize = 50 * 1024 * 1024
+	if tokenType == TokenUserNitroBasic && (chunkSize > MaxChunkSizeNitroBasic || chunkSize <= 0) {
+		chunkSize = MaxChunkSizeNitroBasic
 	}
 	// If the tokenType is TokenUserNitro and chunkSize is greater than 500MB, adjust chunkSize to 500MB.
-	if tokenType == TokenUserNitro && (chunkSize > 500*1024*1024 || chunkSize <= 0) {
-		chunkSize = 500 * 1024 * 1024
+	if tokenType == TokenUserNitro && (chunkSize > MaxChunkSizeNitro || chunkSize <= 0) {
+		chunkSize = MaxChunkSizeNitro
 	}
 	// Return the adjusted chunkSize and nil as there is no error.
 	return chunkSize, nil

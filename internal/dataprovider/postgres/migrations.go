@@ -1,8 +1,6 @@
 package postgres
 
-import (
-	"github.com/forscht/ddrv/pkg/migrate"
-)
+import "github.com/forscht/ddrv/pkg/migrate"
 
 var migrations = []migrate.Migration{
 	{
@@ -85,5 +83,71 @@ var migrations = []migrate.Migration{
 		ID:   6,
 		Up:   migrate.Queries([]string{`CREATE UNIQUE INDEX IF NOT EXISTS idx_node_mid_unique ON node(mid);`}),
 		Down: migrate.Queries([]string{`DROP INDEX IF EXISTS idx_node_mid_unique;`}),
+	},
+	{
+		ID: 7,
+		Up: migrate.Queries([]string{`
+			CREATE OR REPLACE FUNCTION validfname(filename TEXT)
+			    RETURNS VOID
+			AS
+			$$
+			BEGIN
+			    -- first, check if the filename is not NULL or an empty string.
+			    -- next, check if it does not start with a space.
+			    -- then, check if the filename doesn't contain any invalid characters (like /, <, >, :, ", |, or *).
+			    -- finally, if all conditions are met, return true; otherwise, return false.
+			    IF filename IS NOT NULL AND filename != '' AND filename !~ '^ ' AND filename !~ '[/<>"\|\*]' THEN
+			    ELSE
+			        RAISE EXCEPTION 'invalid filename %', filename USING ERRCODE = 'P0002';
+			    END IF;
+			END;
+			$$ LANGUAGE plpgsql;
+			`}),
+		Down: migrate.Queries([]string{`
+			CREATE OR REPLACE FUNCTION validfname(filename TEXT)
+			    RETURNS VOID
+			AS
+			$$
+			BEGIN
+			    -- first, check if the filename is not NULL or an empty string.
+			    -- next, check if it does not start with a space.
+			    -- then, check if the filename doesn't contain any invalid characters (like /, <, >, :, ", |, ?, or *).
+			    -- finally, if all conditions are met, return true; otherwise, return false.
+			    IF filename IS NOT NULL AND filename != '' AND filename !~ '^ ' AND filename !~ '[/<>"\|\?\*]' THEN
+			    ELSE
+			        RAISE EXCEPTION 'invalid filename %', filename USING ERRCODE = 'P0002';
+			    END IF;
+			END;
+			$$ LANGUAGE plpgsql;
+			`}),
+	},
+	{
+		ID: 8,
+		Up: migrate.Queries([]string{
+			`ALTER TABLE fs ADD COLUMN size bigint DEFAULT 0 NOT NULL;`,
+			`UPDATE fs SET size = COALESCE((SELECT SUM(node.size)FROM node WHERE node.file = fs.id), 0);`,
+			refreshVFSFunction,
+			statFunctionV2,
+			lsFunctionV2,
+			touchFunctionV2,
+			mkdirFunctionV2,
+			mvFunctionV2,
+			rmFunctionV2,
+			`DROP FUNCTION IF EXISTS tree(TEXT);`,
+			`DROP FUNCTION IF EXISTS parsesize(size BIGINT);`,
+			`SELECT * FROM refresh_vfs();`,
+		}),
+		Down: migrate.Queries([]string{
+			`ALTER TABLE fs DROP COLUMN size;`,
+			statFunction,
+			lsFunction,
+			touchFunction,
+			mkdirFunction,
+			mvFunction,
+			rmFunction,
+			treeFunction,
+			parseSizeFunction,
+			`DROP FUNCTION IF EXIST refresh_vfs();`,
+		}),
 	},
 }

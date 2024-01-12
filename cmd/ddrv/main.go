@@ -118,6 +118,7 @@ func initConfig() {
 	_ = viper.BindEnv("ddrv.token_type", "TOKEN_TYPE")
 	_ = viper.BindEnv("ddrv.channels", "CHANNELS")
 	_ = viper.BindEnv("ddrv.nitro", "NITRO")
+	_ = viper.BindEnv("ddrv.chunk_size", "CHUNK_SIZE")
 
 	_ = viper.BindEnv("dataprovider.boltdb.db_path", "BOLTDB_DB_PATH")
 	_ = viper.BindEnv("dataprovider.postgres.db_url", "POSTGRES_DB_URL")
