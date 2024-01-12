@@ -13,9 +13,7 @@ ddrv:
   token_type: 0
   # List of Discord channel IDs. The bot token user must have "See Channel", "Send Message", "Create Attachment", and "Read Message History" permissions on these channels.
   # Env: CHANNELS=channel1,channel2
-  channels:
-    - channel1
-    - channel2
+  channels: "1137903955914014800, 1137904009877913690"
   # Defines the maximum size (in bytes) of chunks to be sent via Discord API.
   # You should probably never touch this unless you know what you're doing.
   # This setting impacts how data is chunked before being sent to Discord.
