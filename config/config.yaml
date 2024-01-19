@@ -2,7 +2,7 @@
 ddrv:
   # Discord bot/user token. This token is used to authenticate your bot with Discord's API.
   # Env: TOKEN
-  token: your_token_here
+  token: "b0cad9aac32d2cf3826457bc9f86df8ece54bfc8253e6b963214eae538a2b9ce"
   # Determines the type of token used to authenticate the bot with Discord's API and also the maximum chunk size for attachment.
   # Available options are:
   #   0 - Bot token, max chunk size: 25 MB
