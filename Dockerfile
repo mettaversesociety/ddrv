@@ -14,7 +14,7 @@ FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
-COPY --from=build /app/ddrv /app/ddrv
+COPY --from=build /app/config /app/config
 
 # EXPOSE FTP PORT
 EXPOSE 2525
